@@ -1,0 +1,71 @@
+'''
+Полный поток работы (по шагам)
+🟢 1. Пользователь
+
+выбирает суд
+
+выбирает радиокнопку “1 инстанция / апелляция”
+
+выбирает специализацию
+
+🟢 2. Программа
+
+находит соответствующий .pkl в папке суда
+
+передаёт путь в StatisticsRepository
+
+🟢 3. Repository
+
+загружает .pkl
+
+возвращает raw_data + pkl_name
+
+🟢 4. Context builder
+
+по имени .pkl определяет:
+
+специализацию
+
+инстанцию
+
+тип суда
+
+🟢 5. Factory
+
+по контексту выбирает один конкретный процессор
+
+🟢 6. Processor
+
+считает таблицу
+
+возвращает готовые данные
+
+🟢 7. GUI
+
+показывает таблицу
+
+экспортирует в Word
+
+строит график
+
+
+
+app/
+ ├─ constants/
+ │   └─ pkl_mapping.py
+ │
+ ├─ repository/
+ │   └─ statistics.py
+ │
+ ├─ processors/
+ │   ├─ base.py
+ │   ├─ gpk_first_district.py
+ │   ├─ gpk_first_regional.py
+ │   └─ gpk_appeal_regional.py
+ │
+ ├─ factory/
+ │   └─ processor_factory.py
+ │
+ └─ ui/
+     └─ (tkinter → PyQt5)
+'''
