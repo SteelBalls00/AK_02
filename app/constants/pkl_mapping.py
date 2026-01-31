@@ -14,7 +14,7 @@ PKL_MAPPING = {
     "result4_AP.pkl":       PKLInfo("AP",  "first",  "district"),
     "result4_AP1.pkl":      PKLInfo("AP1", "first",  "district"),
     "result4_U1.pkl":       PKLInfo("U1",  "first",  "district"),
-    "result4_M_U1.pkl":     PKLInfo("M_U1","first",  "district"),
+    "result4_M_U1.pkl":     PKLInfo("M_U1", "first", "district"),
 
     # 1 инстанция — областной суд
     "result4_with_3.pkl":   PKLInfo("GPK", "first",  "regional"),
