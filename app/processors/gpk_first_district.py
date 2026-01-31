@@ -69,6 +69,20 @@ COLUMN_TO_CATEGORY = {
         "Нарушений сдачи в канц. с нач. года",
 }
 
+COLUMN_TO_INCLUDED_CATEGORY = {
+    "От 2 до 6 мес.":
+        "От 2 до 6 месяцев (рассмотренные в текущем году)",
+
+    "От 6 месяцев\nдо 1 года":
+        "От 6 месяцев до 1 года (рассмотренные в текущем году)",
+
+    "От 1 года\nдо 2 лет":
+        "От 1 года до 2 лет (рассмотренные в текущем году)",
+
+    "Свыше двух лет":
+        "Свыше двух лет (рассмотренные в текущем году)",
+}
+
 
 class GPKFirstDistrictProcessor(BaseProcessor):
     """
@@ -171,27 +185,39 @@ class GPKFirstDistrictProcessor(BaseProcessor):
         }
 
     def get_cell_details(self, judge, column, week_index):
-        category = COLUMN_TO_CATEGORY.get(column)
-
-        # Судья или неизвестный столбец
-        if not category:
+        base_category = COLUMN_TO_CATEGORY.get(column)
+        if not base_category:
             return []
 
         weeks = list(self.raw_data.keys())
         week_key = weeks[week_index]
         week_data = self.raw_data.get(week_key, {})
-
         judge_data = week_data.get(judge)
+
         if not judge_data:
             return []
 
-        value = judge_data.get(category, [])
+        result = []
 
-        # В pkl у тебя почти везде списки
-        if isinstance(value, list):
-            return value
+        # Основная категория
+        base_values = judge_data.get(base_category, [])
+        if isinstance(base_values, list):
+            result.append((
+                "Всего",
+                base_values
+            ))
 
-        return [value]
+        # Категория "в т.ч. рассмотренные в текущем году"
+        included_category = COLUMN_TO_INCLUDED_CATEGORY.get(column)
+        if included_category:
+            included_values = judge_data.get(included_category, [])
+            if isinstance(included_values, list):
+                result.append((
+                    "В т.ч. рассмотренные в текущем году",
+                    included_values
+                ))
+
+        return result
 
     # ---------- helpers ----------
 

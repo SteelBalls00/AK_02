@@ -206,8 +206,12 @@ class MainWindow(QMainWindow):
 
         lines.append("Исходные значения:")
 
-        for item in details:
-            lines.append(f"  • {item}")
+        for title, values in details:
+            total = len(values) if values else 0
+            lines.append(f"{title}: {total}")
+
+            for v in values:
+                lines.append(f"  • {v}")
 
         return "\n".join(lines)
 
