@@ -1,6 +1,75 @@
 from app.processors.base import BaseProcessor
 
 
+COLUMN_TO_CATEGORY = {
+    # 0 — Судья (специальный столбец, данных в pkl нет)
+    "Судья": None,
+
+    # Рассмотрение
+    "Рассм. дел\nза неделю":
+        "Рассмотрено за неделю",
+
+    "Рассм. дел\nс начала года":
+        "Рассмотрено с начала года",
+
+    # Нарушения мотивировки
+    "Наруш. мотивир.\nв неделю":
+        "Нарушение мотивировки в неделю",
+
+    "Наруш. мотивир.\nс начала года":
+        "Нарушений изготовления мотивировки с начала года",
+
+    # Принято
+    "Принято\nза неделю":
+        "Принято за неделю",
+
+    "Принято\nс начала года":
+        "Принято с начала года",
+
+    # Поступило / передано
+    "Поступило\nза неделю":
+        "Передано за неделю",
+
+    "Поступило\nс начала года":
+        "Передано с начала года",
+
+    # Остаток
+    "Остаток":
+        "Остаток",
+
+    # Без движения
+    "Без движения\nсейчас (за год)":
+        "Без движения за год",
+
+    "Без движения\nв неделе":
+        "Без движения в этой неделе",
+
+    # Приостановленные
+    "Приостановлено\nдел":
+        "Приостановлено дел",
+
+    # Сроки рассмотрения
+    "От 2 до 6 мес.":
+        "От 2 до 6 месяцев",
+
+    "От 6 месяцев\nдо 1 года":
+        "От 6 месяцев до 1 года",
+
+    "От 1 года\nдо 2 лет":
+        "От 1 года до 2 лет",
+
+    "Свыше двух лет":
+        "Свыше двух лет",
+
+    # Канцелярия
+    "Не сдано в канц.\nсвыше срока":
+        "Не сдано в канц. свыше срока",
+
+    "Нарушений сдачи\nв канц. с нач. года":
+        "Нарушений сдачи в канц. с нач. года",
+}
+
+
 class GPKFirstDistrictProcessor(BaseProcessor):
     """
     ГПК — 1 инстанция — районный / городской суд
@@ -60,6 +129,8 @@ class GPKFirstDistrictProcessor(BaseProcessor):
     # ---------- public ----------
 
     def build(self, raw_data, week_index):
+        self.raw_data = raw_data
+        self.week_index = week_index
         weeks = list(raw_data.keys())
         week_key = weeks[week_index]
         week_data = raw_data[week_key]
@@ -98,6 +169,29 @@ class GPKFirstDistrictProcessor(BaseProcessor):
                 "Количество нарушений сроков\nсдачи дел в канцелярию\nс начала года",
             ],
         }
+
+    def get_cell_details(self, judge, column, week_index):
+        category = COLUMN_TO_CATEGORY.get(column)
+
+        # Судья или неизвестный столбец
+        if not category:
+            return []
+
+        weeks = list(self.raw_data.keys())
+        week_key = weeks[week_index]
+        week_data = self.raw_data.get(week_key, {})
+
+        judge_data = week_data.get(judge)
+        if not judge_data:
+            return []
+
+        value = judge_data.get(category, [])
+
+        # В pkl у тебя почти везде списки
+        if isinstance(value, list):
+            return value
+
+        return [value]
 
     # ---------- helpers ----------
 

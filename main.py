@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (
     QMessageBox,
     QTableView, QRadioButton,
     QGroupBox,
-    QHBoxLayout, QPushButton, QLabel, QFileDialog, QHeaderView
+    QHBoxLayout, QPushButton, QLabel, QFileDialog, QHeaderView, QTextEdit
 )
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QSize
@@ -169,6 +169,18 @@ class MainWindow(QMainWindow):
         }
         """)
 
+        # --- Область детализации ---
+        self.details_view = QTextEdit()
+        self.details_view.setReadOnly(True)
+        self.details_view.setMinimumHeight(120)
+
+        self.details_view.setPlaceholderText(
+            "Выберите ячейку таблицы, чтобы увидеть детализацию"
+        )
+
+        selection_model = self.table_view.selectionModel()
+        selection_model.selectionChanged.connect(self.on_table_selection_changed)
+
         # ================= Индикатор загрузки =================
         self.loading_label = QLabel("Загрузка данных...")
         self.loading_label.setAlignment(Qt.AlignCenter)
@@ -178,8 +190,58 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(top_layout)
         main_layout.addWidget(self.loading_label)
         main_layout.addWidget(self.table_view)
+        main_layout.addWidget(self.details_view)
 
         self.setCentralWidget(central)
+
+    def _format_details_block(self, judge, column, details):
+        lines = [
+            f"Судья: {judge}",
+            f"Показатель: {column}",
+        ]
+
+        if not details:
+            lines.append("Детализация отсутствует")
+            return "\n".join(lines)
+
+        lines.append("Исходные значения:")
+
+        for item in details:
+            lines.append(f"  • {item}")
+
+        return "\n".join(lines)
+
+    def on_table_selection_changed(self, selected, deselected):
+        if not self.current_context:
+            return
+
+        indexes = self.table_view.selectionModel().selectedIndexes()
+        if not indexes:
+            self.details_view.clear()
+            return
+
+        blocks = []
+
+        for index in indexes:
+            row = index.row()
+            col = index.column()
+
+            # имя судьи — всегда первый столбец
+            judge = self.model.data(self.model.index(row, 0))
+
+            column_name = self.model.headerData(col, Qt.Horizontal)
+
+            details = self.current_processor.get_cell_details(
+                judge=judge,
+                column=column_name,
+                week_index=self.week_index,
+            )
+
+            blocks.append(self._format_details_block(
+                judge, column_name, details
+            ))
+
+        self.details_view.setPlainText("\n\n".join(blocks))
 
     def _load_courts(self):
         courts = self.bases_repo.get_courts()
@@ -278,20 +340,30 @@ class MainWindow(QMainWindow):
         self.loading_label.setVisible(True)
         self.table_view.setEnabled(False)
 
+        # 1. Получаем процессор из фабрики
+        processor = ProcessorFactory.get(self.current_context)
+
+        # 2. Сохраняем его для детализации
+        self.current_processor = processor
+
+        # 3. Запускаем воркер
         worker = DataLoadWorker(
-            processor_factory=ProcessorFactory,
+            processor=processor,
             raw_data=self.current_raw_data,
-            context=self.current_context,
             week_index=self.week_index
         )
 
         self.active_workers.append(worker)
 
-        worker.finished.connect(lambda data, w=worker: self.on_data_loaded(data, w))
-        worker.error.connect(lambda msg, w=worker: self.on_data_error(msg, w))
+        worker.finished.connect(self.on_data_loaded)
+        worker.error.connect(self.on_data_error)
+
         worker.start()
 
-    def on_data_loaded(self, table_data, worker):
+    def on_data_loaded(self, table_data):
+        self.loading_label.setVisible(False)
+        self.table_view.setEnabled(True)
+
         self.model.set_table_data(table_data)
 
         # сортировка по судье
@@ -301,8 +373,7 @@ class MainWindow(QMainWindow):
         self.loading_label.setVisible(False)
         self.table_view.setEnabled(True)
 
-        if worker in self.active_workers:
-            self.active_workers.remove(worker)
+        self.active_workers.clear()
 
         self.current_week_key = table_data.get("week")
 
