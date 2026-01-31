@@ -195,6 +195,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
     def _format_details_block(self, judge, column, details):
+        column = column.replace('\n', ' ')
         lines = [
             f"Судья: {judge}",
             f"Показатель: {column}",
@@ -204,7 +205,7 @@ class MainWindow(QMainWindow):
             lines.append("Детализация отсутствует")
             return "\n".join(lines)
 
-        lines.append("Исходные значения:")
+        # lines.append("Исходные значения:")
 
         for title, values in details:
             total = len(values) if values else 0
