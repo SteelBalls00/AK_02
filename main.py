@@ -1,6 +1,7 @@
 import sys
 import os
 
+from PyQt5.QtWidgets import QFrame
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QApplication,
@@ -189,8 +190,15 @@ class MainWindow(QMainWindow):
         # ================= Сборка =================
         main_layout.addLayout(top_layout)
         main_layout.addWidget(self.loading_label)
-        main_layout.addWidget(self.table_view)
-        main_layout.addWidget(self.details_view)
+        main_layout.addWidget(self.table_view, stretch=6)
+
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+
+        # main_layout.addWidget(separator)
+
+        main_layout.addWidget(self.details_view, stretch=2)
 
         self.setCentralWidget(central)
 
