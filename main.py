@@ -74,18 +74,15 @@ class MainWindow(QMainWindow):
         self.week_label.setCursor(Qt.PointingHandCursor)
         self.week_label.mousePressEvent = self.on_week_label_clicked
 
-        self.week_label.setStyleSheet("""
-        QLabel {
-            color: #7fb2ff;
-        }
-        QLabel:hover {
-            color: #a6c8ff;
-            text-decoration: underline;
-        }
-        """)
+        self.week_label.setProperty("role", "week-label")
+        self.prev_week_btn.setProperty("role", "week-nav")
+        self.next_week_btn.setProperty("role", "week-nav")
 
         self.prev_week_btn.clicked.connect(self.prev_week)
         self.next_week_btn.clicked.connect(self.next_week)
+
+        for btn in (self.prev_week_btn, self.next_week_btn):
+            btn.setFixedSize(68, 48)
 
         week_box = QHBoxLayout()
         week_box.addWidget(self.prev_week_btn)
@@ -141,9 +138,6 @@ class MainWindow(QMainWindow):
         self.instance_buttons["first"].setChecked(True)
         top_layout.addWidget(inst_group)
 
-        # растяжка, чтобы элементы не слипались
-        top_layout.addStretch()
-
         # --- Кнопка выгрузки в Word ---
         script_dir = os.path.dirname(os.path.abspath(__file__))
         word_icon_path = os.path.join(script_dir, "Word_png.png")
@@ -152,8 +146,12 @@ class MainWindow(QMainWindow):
         self.word_export_btn.setIcon(QIcon(word_icon_path))
         self.word_export_btn.setIconSize(QSize(86, 25))
         self.word_export_btn.clicked.connect(self.export_to_word)
+        self.word_export_btn.setObjectName("export_to_word")
 
         top_layout.addWidget(self.word_export_btn)
+
+        # растяжка, чтобы элементы не слипались
+        top_layout.addStretch()
 
         # ================= переключатель темы =================
         self.theme_toggle_btn = QToolButton()
@@ -705,20 +703,7 @@ class MainWindow(QMainWindow):
 LIGHT_STYLE = """
 QWidget {
     font-family: "Segoe UI";
-    font-size: 10pt;
     color: #2b2b2b;
-}
-
-/* --- Главное окно --- */
-QMainWindow {
-    background-color: #f2f2f2;
-}
-
-/* --- Панели --- */
-QFrame, QWidget#panel {
-    background-color: #ffffff;
-    border: 1px solid #cfcfcf;
-    border-radius: 4px;
 }
 
 /* --- Таблица --- */
@@ -730,20 +715,8 @@ QTableView {
     alternate-background-color: #fafafa;
 }
 
-QTableView::item {
-    padding: 4px;
-}
-
 QTableView::item:selected {
     background-color: #cfe3f6;
-}
-
-/* --- Заголовки таблицы --- */
-QHeaderView::section {
-    background-color: #f5f5f5;
-    border: 1px solid #d0d0d0;
-    padding: 6px;
-    font-weight: bold;
 }
 
 /* --- Кнопки --- */
@@ -763,9 +736,47 @@ QPushButton:pressed {
     background-color: #2f5d8a;
 }
 
+QPushButton#export_to_word {
+    background-color: transparent;
+}
+
+QPushButton#export_to_word:hover {
+    background-color: #5a96d5;
+}
+
+QPushButton[role="week-nav"] {
+    background-color: #4a86c5;
+    border: none;
+    font-weight: bold;
+    padding: 4px 8px;
+    font-size: 20pt;
+    font-weight: bold;
+}
+
+QPushButton[role="week-nav"]:hover {
+    background-color: #4a86c5;
+    font-size: 20pt;
+    font-weight: bold;
+}
+
+QPushButton[role="week-nav"]:pressed {
+    background-color: rgba(0, 0, 0, 0.15);
+}
+
+
 /* --- Radio / Check --- */
 QRadioButton, QCheckBox {
     spacing: 6px;
+}
+
+/* ================== LABEL ================== */
+QLabel {
+    color: black;
+}
+
+QLabel[role="week-label"] {
+    font-size: 20pt;
+    font-weight: bold;
 }
 
 /* --- ComboBox --- */
@@ -802,7 +813,6 @@ QWidget {
     background-color: #2b2b2b;
     color: #e6e6e6;
     font-family: "Segoe UI";
-    font-size: 10pt;
 }
 
 /* ================== ПАНЕЛИ ================== */
@@ -817,6 +827,11 @@ QLabel {
     color: #e6e6e6;
 }
 
+QLabel[role="week-label"] {
+    font-size: 20pt;
+    font-weight: bold;
+}
+
 /* ================== КНОПКИ ================== */
 QPushButton {
     background-color: #4a86c5;
@@ -828,11 +843,30 @@ QPushButton {
 
 QPushButton:hover {
     background-color: #5a96d5;
+    font-size: 20pt;
+    font-weight: bold;
 }
 
 QPushButton:pressed {
     background-color: #3a6ea5;
 }
+
+QPushButton[role="week-nav"] {
+    background-color: #4a86c5;
+    border: none;
+    color: #a6c8ff;
+    font-size: 20pt;
+    font-weight: bold;
+}
+
+QPushButton[role="week-nav"]:hover {
+    background-color: #4a86c5;
+}
+
+QPushButton[role="week-nav"]:pressed {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
 
 /* ================== TOOL BUTTON ================== */
 QToolButton {
@@ -922,8 +956,8 @@ QSplitter::handle {
 
 def main():
     app = QApplication(sys.argv)
-    # app.setStyle("Fusion")  # очень важно
-    # app.setStyleSheet(DARK_STYLE)
+    # app.setStyle("macOS")  # очень важно
+    app.setStyleSheet(LIGHT_STYLE)
     window = MainWindow()
     window.resize(1200, 800)
     window.showMaximized()
