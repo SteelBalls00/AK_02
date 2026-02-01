@@ -151,6 +151,11 @@ class MainWindow(QMainWindow):
         self.table_view.setModel(self.model)
         self.table_view.setSortingEnabled(True)
 
+        self.table_view.setAlternatingRowColors(True)
+        self.table_view.setShowGrid(True)
+        self.table_view.verticalHeader().setVisible(False)
+        self.table_view.horizontalHeader().setStretchLastSection(True)
+
         header = self.table_view.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeToContents)
         header.setDefaultAlignment(Qt.AlignCenter)
@@ -662,8 +667,105 @@ class MainWindow(QMainWindow):
             week=self.week_label.text()
         )
 
+APP_STYLE = """
+QWidget {
+    font-family: "Segoe UI";
+    font-size: 10pt;
+    color: #2b2b2b;
+}
+
+/* --- Главное окно --- */
+QMainWindow {
+    background-color: #f2f2f2;
+}
+
+/* --- Панели --- */
+QFrame, QWidget#panel {
+    background-color: #ffffff;
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+}
+
+/* --- Таблица --- */
+QTableView {
+    background-color: #ffffff;
+    gridline-color: #dcdcdc;
+    selection-background-color: #e6f0fa;
+    selection-color: #000000;
+    alternate-background-color: #fafafa;
+}
+
+QTableView::item {
+    padding: 4px;
+}
+
+QTableView::item:selected {
+    background-color: #cfe3f6;
+}
+
+/* --- Заголовки таблицы --- */
+QHeaderView::section {
+    background-color: #f5f5f5;
+    border: 1px solid #d0d0d0;
+    padding: 6px;
+    font-weight: bold;
+}
+
+/* --- Кнопки --- */
+QPushButton {
+    background-color: #3a6ea5;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+}
+
+QPushButton:hover {
+    background-color: #4a82c0;
+}
+
+QPushButton:pressed {
+    background-color: #2f5d8a;
+}
+
+/* --- Radio / Check --- */
+QRadioButton, QCheckBox {
+    spacing: 6px;
+}
+
+/* --- ComboBox --- */
+QComboBox {
+    background-color: #ffffff;
+    border: 1px solid #cfcfcf;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+/* --- Детализация --- */
+QTextEdit {
+    background-color: #fcfcfc;
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    padding: 6px;
+}
+
+/* --- ToolButton (если появятся) --- */
+QToolButton {
+    background-color: transparent;
+    border: none;
+    padding: 4px;
+}
+
+QToolButton:hover {
+    background-color: #e6f0fa;
+}
+"""
+
+
 def main():
     app = QApplication(sys.argv)
+    # app.setStyle("Fusion")  # очень важно
+    # app.setStyleSheet(APP_STYLE)
     window = MainWindow()
     window.resize(1200, 800)
     window.showMaximized()
