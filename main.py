@@ -4,15 +4,10 @@ import os
 from PyQt5.QtWidgets import QFrame
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
-    QApplication,
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
-    QComboBox,
-    QMessageBox,
-    QTableView, QRadioButton,
-    QGroupBox,
-    QHBoxLayout, QPushButton, QLabel, QFileDialog, QHeaderView, QTextEdit
+    QApplication, QToolButton, QMainWindow, QWidget,
+    QVBoxLayout, QComboBox, QMessageBox, QTableView,
+    QRadioButton, QGroupBox, QHBoxLayout, QPushButton,
+    QLabel, QHeaderView, QTextEdit, QSplitter
 )
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QSize
@@ -140,6 +135,9 @@ class MainWindow(QMainWindow):
 
         top_layout.addWidget(self.word_export_btn)
 
+        # ================= Перетаскиватель =================
+        self.splitter = QSplitter(Qt.Vertical)
+
         # ================= Таблица =================
         self.table_view = QTableView()
         self.model = TableModel()
@@ -187,18 +185,23 @@ class MainWindow(QMainWindow):
         self.loading_label.setAlignment(Qt.AlignCenter)
         self.loading_label.setVisible(False)
 
-        # ================= Сборка =================
-        main_layout.addLayout(top_layout)
-        main_layout.addWidget(self.loading_label)
-        main_layout.addWidget(self.table_view, stretch=6)
-
+        # ================= Разделитель =================
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
         separator.setFrameShadow(QFrame.Sunken)
 
-        # main_layout.addWidget(separator)
+        # ================= Сборка =================
+        self.splitter.addWidget(self.table_view)
+        self.splitter.addWidget(self.details_view)
+        self.splitter.setStretchFactor(0, 8)  # таблица
+        self.splitter.setStretchFactor(1, 2)  # детализация
 
-        main_layout.addWidget(self.details_view, stretch=2)
+        main_layout.addLayout(top_layout)
+        main_layout.addWidget(self.loading_label)
+        main_layout.addWidget(separator)
+        main_layout.addWidget(self.splitter)
+        # main_layout.addWidget(self.table_view, stretch=6)
+        # main_layout.addWidget(self.details_view, stretch=2)
 
         self.setCentralWidget(central)
 
