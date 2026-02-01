@@ -738,6 +738,9 @@ QPushButton:pressed {
 
 QPushButton#export_to_word {
     background-color: transparent;
+    min-width: 48px;
+    min-height: 48px;
+    padding: 0px;
 }
 
 QPushButton#export_to_word:hover {
