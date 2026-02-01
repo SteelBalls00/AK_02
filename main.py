@@ -1,10 +1,14 @@
 import sys
 import os
+from docx import Document
+from datetime import datetime
+from openpyxl import Workbook
+
 
 from PyQt5.QtWidgets import QFrame
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
-    QApplication, QToolButton, QMainWindow, QWidget,
+    QApplication, QMenu, QMainWindow, QWidget,
     QVBoxLayout, QComboBox, QMessageBox, QTableView,
     QRadioButton, QGroupBox, QHBoxLayout, QPushButton,
     QLabel, QHeaderView, QTextEdit, QSplitter
@@ -172,6 +176,10 @@ class MainWindow(QMainWindow):
         self.details_view = QTextEdit()
         self.details_view.setReadOnly(True)
         self.details_view.setMinimumHeight(30)
+        self.details_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.details_view.customContextMenuRequested.connect(
+            self.show_details_context_menu
+        )
 
         self.details_view.setPlaceholderText(
             "Выберите ячейку таблицы, чтобы увидеть детализацию"
@@ -200,10 +208,164 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.loading_label)
         main_layout.addWidget(separator)
         main_layout.addWidget(self.splitter)
-        # main_layout.addWidget(self.table_view, stretch=6)
-        # main_layout.addWidget(self.details_view, stretch=2)
 
         self.setCentralWidget(central)
+
+    def parse_details_blocks(self):
+        """
+        Разбирает текст детализации на блоки:
+        [
+            {
+                "header": ["Судья: ...", "Показатель: ..."],
+                "items": ["2-2735/2025, ...", ...]
+            },
+            ...
+        ]
+        """
+        text = self.details_view.toPlainText()
+        lines = [l.rstrip() for l in text.splitlines()]
+
+        blocks = []
+        current_header = []
+        current_items = []
+
+        for line in lines:
+            if not line:
+                continue
+
+            if line.startswith("Судья:") or line.startswith("Показатель:"):
+                if current_items:
+                    blocks.append({
+                        "header": current_header,
+                        "items": current_items
+                    })
+                    current_header = []
+                    current_items = []
+
+                current_header.append(line)
+
+            elif line.strip().startswith("•"):
+                current_items.append(line.replace("• ", "").strip())
+
+        if current_items:
+            blocks.append({
+                "header": current_header,
+                "items": current_items
+            })
+
+        return blocks
+
+    def export_details_to_excel(self, only_numbers: bool):
+        blocks = self.parse_details_blocks()
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Детализация"
+
+        row = 1
+
+        for block in blocks:
+            for header_line in block["header"]:
+                ws.cell(row=row, column=1, value=header_line)
+                row += 1
+
+            for item in block["items"]:
+                if only_numbers:
+                    item = self.extract_case_number(item)
+                ws.cell(row=row, column=1, value=item)
+                row += 1
+
+            row += 2  # пустая строка между блоками
+
+        filename = f"details_{datetime.now():%d.%m.%Y.%H.%M.%S}.xlsx"
+        wb.save(filename)
+        os.startfile(filename)
+
+    def export_details_to_word(self, only_numbers: bool):
+        blocks = self.parse_details_blocks()
+
+        document = Document()
+        document.add_heading("Детализация", level=1)
+
+        for block in blocks:
+            # Заголовок блока
+            for header_line in block["header"]:
+                document.add_paragraph(header_line)
+
+            document.add_paragraph("")  # отступ
+
+            # Содержимое
+            for item in block["items"]:
+                if only_numbers:
+                    item = self.extract_case_number(item)
+                document.add_paragraph(item)
+
+            document.add_page_break()
+
+        filename = f"details_{datetime.now():%d.%m.%Y.%H.%M.%S}.docx"
+        document.save(filename)
+        os.startfile(filename)
+
+    def get_details_lines(self):
+        """
+        Возвращает список строк детализации (без пустых)
+        """
+        text = self.details_view.toPlainText()
+        return [line.strip() for line in text.splitlines() if line.strip()]
+
+    def extract_case_number(self, line: str) -> str:
+        """
+        Извлекает номер дела до первой запятой
+        """
+        if "," in line:
+            return line.split(",", 1)[0].strip().replace('• ', '')
+        return line.strip()
+
+    def copy_details_to_clipboard(self):
+        blocks = self.parse_details_blocks()
+
+        lines = []
+        for block in blocks:
+            lines.extend(block["header"])
+            lines.extend(block["items"])
+            lines.append("")
+
+        QApplication.clipboard().setText("\n".join(lines))
+
+    def show_details_context_menu(self, pos):
+        menu = QMenu(self)
+
+        # --- Копировать ---
+        copy_action = menu.addAction("Скопировать в буфер обмена")
+        copy_action.triggered.connect(self.copy_details_to_clipboard)
+
+        menu.addSeparator()
+
+        # --- Word ---
+        word_menu = menu.addMenu("Передать в Word")
+        word_only_numbers = word_menu.addAction("Только номера дел")
+        word_full = word_menu.addAction("Номера дел со всей информацией")
+
+        word_only_numbers.triggered.connect(
+            lambda: self.export_details_to_word(only_numbers=True)
+        )
+        word_full.triggered.connect(
+            lambda: self.export_details_to_word(only_numbers=False)
+        )
+
+        # --- Excel ---
+        excel_menu = menu.addMenu("Передать в Excel")
+        excel_only_numbers = excel_menu.addAction("Только номера дел")
+        excel_full = excel_menu.addAction("Номера дел со всей информацией")
+
+        excel_only_numbers.triggered.connect(
+            lambda: self.export_details_to_excel(only_numbers=True)
+        )
+        excel_full.triggered.connect(
+            lambda: self.export_details_to_excel(only_numbers=False)
+        )
+
+        menu.exec_(self.details_view.mapToGlobal(pos))
 
     def _format_details_block(self, judge, column, details):
         column = column.replace('\n', ' ')
