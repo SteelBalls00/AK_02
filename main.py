@@ -171,7 +171,7 @@ class MainWindow(QMainWindow):
         # --- Область детализации ---
         self.details_view = QTextEdit()
         self.details_view.setReadOnly(True)
-        self.details_view.setMinimumHeight(120)
+        self.details_view.setMinimumHeight(30)
 
         self.details_view.setPlaceholderText(
             "Выберите ячейку таблицы, чтобы увидеть детализацию"
@@ -223,6 +223,7 @@ class MainWindow(QMainWindow):
             lines.append(f"{title}: {total}")
 
             for v in values:
+                v = v[6:]
                 lines.append(f"  • {v}")
 
         return "\n".join(lines)
