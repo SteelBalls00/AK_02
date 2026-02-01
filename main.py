@@ -15,7 +15,9 @@ from PyQt5.QtWidgets import (
     QCalendarWidget, QDialog,
 )
 from PyQt5.QtGui import QIcon, QFont
-from PyQt5.QtCore import QSize
+from PyQt5.QtCore import QSize, QPropertyAnimation
+from PyQt5.QtWidgets import QGraphicsOpacityEffect
+
 
 from app.constants.pkl_mapping import PKL_MAPPING
 from app.repository.bases_repository import BasesRepository
@@ -177,6 +179,12 @@ class MainWindow(QMainWindow):
         self.table_view.verticalHeader().setVisible(False)
         self.table_view.horizontalHeader().setStretchLastSection(True)
 
+        self.table_opacity = QGraphicsOpacityEffect(self.table_view)
+        self.table_view.setGraphicsEffect(self.table_opacity)
+
+        self.fade_anim = QPropertyAnimation(self.table_opacity, b"opacity")
+        self.fade_anim.setDuration(150)
+
         header = self.table_view.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeToContents)
         header.setDefaultAlignment(Qt.AlignCenter)
@@ -241,6 +249,30 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.splitter)
 
         self.setCentralWidget(central)
+
+    def animate_table_update(self, update_callback):
+        """
+        Анимирует обновление таблицы:
+        fade-out → update → fade-in
+        """
+
+        def fade_in():
+            self.fade_anim.finished.disconnect()
+            self.fade_anim.setStartValue(0.0)
+            self.fade_anim.setEndValue(1.0)
+            self.fade_anim.start()
+
+        def on_fade_out_finished():
+            update_callback()
+            self.fade_anim.finished.connect(fade_in)
+            self.fade_anim.setStartValue(1.0)
+            self.fade_anim.setEndValue(0.0)
+            self.fade_anim.start()
+
+        self.fade_anim.finished.connect(on_fade_out_finished)
+        self.fade_anim.setStartValue(1.0)
+        self.fade_anim.setEndValue(0.0)
+        self.fade_anim.start()
 
     def toggle_theme(self, checked: bool):
         app = QApplication.instance()
@@ -648,12 +680,21 @@ class MainWindow(QMainWindow):
 
         self.active_workers.append(worker)
 
-        worker.finished.connect(self.on_data_loaded)
+        worker.finished.connect(
+            lambda table_data, w=worker: self.on_data_loaded(table_data, w)
+        )
         worker.error.connect(self.on_data_error)
 
         worker.start()
 
-    def on_data_loaded(self, table_data):
+    def on_data_loaded(self, table_data, worker):
+        def apply():
+            self.model.set_table_data(table_data)
+            self.loading_label.setVisible(False)
+            self.table_view.setEnabled(True)
+
+        self.animate_table_update(apply)
+
         self.loading_label.setVisible(False)
         self.table_view.setEnabled(True)
 
