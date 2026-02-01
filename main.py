@@ -1,17 +1,18 @@
 import sys
 import os
 from docx import Document
-from datetime import datetime
+from datetime import datetime, date
 from openpyxl import Workbook
 
 
 from PyQt5.QtWidgets import QFrame
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QDate
 from PyQt5.QtWidgets import (
     QApplication, QMenu, QMainWindow, QWidget,
     QVBoxLayout, QComboBox, QMessageBox, QTableView,
     QRadioButton, QGroupBox, QHBoxLayout, QPushButton,
-    QLabel, QHeaderView, QTextEdit, QSplitter
+    QLabel, QHeaderView, QTextEdit, QSplitter,
+    QCalendarWidget, QDialog,
 )
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QSize
@@ -67,6 +68,8 @@ class MainWindow(QMainWindow):
         self.next_week_btn = QPushButton("▶")
         self.week_label = QLabel("")
         self.week_label.setAlignment(Qt.AlignCenter)
+        self.week_label.setCursor(Qt.PointingHandCursor)
+        self.week_label.mousePressEvent = self.on_week_label_clicked
 
         self.prev_week_btn.clicked.connect(self.prev_week)
         self.next_week_btn.clicked.connect(self.next_week)
@@ -210,6 +213,79 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.splitter)
 
         self.setCentralWidget(central)
+
+    def select_week_by_date(self, selected_date: date):
+        """
+        Выбирает неделю, в которую попадает дата.
+        Если такой нет — выбирает ближайшую.
+        """
+        weeks = list(self.current_raw_data.keys())
+
+        parsed_weeks = []
+
+        for idx, week_str in enumerate(weeks):
+            try:
+                start_str, end_str = week_str.split(" - ")
+                start = datetime.strptime(start_str, "%d.%m.%Y").date()
+                end = datetime.strptime(end_str, "%d.%m.%Y").date()
+                parsed_weeks.append((idx, start, end))
+            except Exception:
+                continue
+
+        if not parsed_weeks:
+            return
+
+        # 1️⃣ Пытаемся найти точное попадание
+        for idx, start, end in parsed_weeks:
+            if start <= selected_date <= end:
+                self.week_index = idx
+                self.reload_current_court()
+                return
+
+        # 2️⃣ Ищем ближайшую неделю
+        def distance(week):
+            _, start, end = week
+            if selected_date < start:
+                return (start - selected_date).days
+            if selected_date > end:
+                return (selected_date - end).days
+            return 0
+
+        closest = min(parsed_weeks, key=distance)
+        self.week_index = closest[0]
+        self.reload_current_court()
+
+    def on_calendar_confirmed(self, calendar: QCalendarWidget, dialog: QDialog):
+        qdate = calendar.selectedDate()
+        selected_date = date(qdate.year(), qdate.month(), qdate.day())
+
+        self.select_week_by_date(selected_date)
+
+        dialog.accept()
+
+    def on_week_label_clicked(self, event):
+        if not self.current_raw_data:
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Выбор даты")
+        dialog.setModal(True)
+
+        layout = QVBoxLayout(dialog)
+
+        calendar = QCalendarWidget()
+        calendar.setGridVisible(True)
+        calendar.setSelectedDate(QDate.currentDate())
+
+        layout.addWidget(calendar)
+
+        btn_ok = QPushButton("Выбрать")
+        layout.addWidget(btn_ok)
+
+        btn_ok.clicked.connect(lambda: self.on_calendar_confirmed(calendar, dialog))
+
+        dialog.resize(300, 250)
+        dialog.exec_()
 
     def parse_details_blocks(self):
         """
