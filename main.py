@@ -5,7 +5,7 @@ from datetime import datetime, date
 from openpyxl import Workbook
 
 
-from PyQt5.QtWidgets import QFrame
+from PyQt5.QtWidgets import QFrame, QToolButton
 from PyQt5.QtCore import Qt, QDate
 from PyQt5.QtWidgets import (
     QApplication, QMenu, QMainWindow, QWidget,
@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import (
     QLabel, QHeaderView, QTextEdit, QSplitter,
     QCalendarWidget, QDialog,
 )
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QFont
 from PyQt5.QtCore import QSize
 
 from app.constants.pkl_mapping import PKL_MAPPING
@@ -61,7 +61,10 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(central)
 
         # ================= Верхняя панель =================
-        top_layout = QHBoxLayout()
+        header_widget = QWidget()
+        header_widget.setObjectName("panel")
+        top_layout = QHBoxLayout(header_widget)
+        top_layout.setContentsMargins(8, 8, 8, 8)
 
         # --- Переключение недель ---
         self.prev_week_btn = QPushButton("◀")
@@ -70,6 +73,16 @@ class MainWindow(QMainWindow):
         self.week_label.setAlignment(Qt.AlignCenter)
         self.week_label.setCursor(Qt.PointingHandCursor)
         self.week_label.mousePressEvent = self.on_week_label_clicked
+
+        self.week_label.setStyleSheet("""
+        QLabel {
+            color: #7fb2ff;
+        }
+        QLabel:hover {
+            color: #a6c8ff;
+            text-decoration: underline;
+        }
+        """)
 
         self.prev_week_btn.clicked.connect(self.prev_week)
         self.next_week_btn.clicked.connect(self.next_week)
@@ -142,6 +155,16 @@ class MainWindow(QMainWindow):
 
         top_layout.addWidget(self.word_export_btn)
 
+        # ================= переключатель темы =================
+        self.theme_toggle_btn = QToolButton()
+        self.theme_toggle_btn.setText("🌙 Тёмная тема")
+        self.theme_toggle_btn.setCheckable(True)
+        self.theme_toggle_btn.setChecked(False)  # стартуем с тёмной
+
+        self.theme_toggle_btn.clicked.connect(self.toggle_theme)
+
+        top_layout.addWidget(self.theme_toggle_btn)
+
         # ================= Перетаскиватель =================
         self.splitter = QSplitter(Qt.Vertical)
 
@@ -188,6 +211,8 @@ class MainWindow(QMainWindow):
         self.details_view.customContextMenuRequested.connect(
             self.show_details_context_menu
         )
+        self.details_view.setLineWrapMode(QTextEdit.NoWrap)
+        self.details_view.setFont(QFont("Consolas", 10))
 
         self.details_view.setPlaceholderText(
             "Выберите ячейку таблицы, чтобы увидеть детализацию"
@@ -212,12 +237,22 @@ class MainWindow(QMainWindow):
         self.splitter.setStretchFactor(0, 8)  # таблица
         self.splitter.setStretchFactor(1, 2)  # детализация
 
-        main_layout.addLayout(top_layout)
+        main_layout.addWidget(header_widget)
         main_layout.addWidget(self.loading_label)
         main_layout.addWidget(separator)
         main_layout.addWidget(self.splitter)
 
         self.setCentralWidget(central)
+
+    def toggle_theme(self, checked: bool):
+        app = QApplication.instance()
+
+        if checked:
+            app.setStyleSheet(DARK_STYLE)
+            self.theme_toggle_btn.setText("🌞 Светлая тема")
+        else:
+            app.setStyleSheet(LIGHT_STYLE)
+            self.theme_toggle_btn.setText("🌙 Тёмная тема")
 
     def select_week_by_date(self, selected_date: date):
         """
@@ -667,7 +702,7 @@ class MainWindow(QMainWindow):
             week=self.week_label.text()
         )
 
-APP_STYLE = """
+LIGHT_STYLE = """
 QWidget {
     font-family: "Segoe UI";
     font-size: 10pt;
@@ -761,11 +796,134 @@ QToolButton:hover {
 }
 """
 
+DARK_STYLE = """
+/* ================== БАЗА ================== */
+QWidget {
+    background-color: #2b2b2b;
+    color: #e6e6e6;
+    font-family: "Segoe UI";
+    font-size: 10pt;
+}
+
+/* ================== ПАНЕЛИ ================== */
+QFrame, QWidget#panel {
+    background-color: #313335;
+    border: 1px solid #444444;
+    border-radius: 4px;
+}
+
+/* ================== LABEL ================== */
+QLabel {
+    color: #e6e6e6;
+}
+
+/* ================== КНОПКИ ================== */
+QPushButton {
+    background-color: #4a86c5;
+    color: #ffffff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+}
+
+QPushButton:hover {
+    background-color: #5a96d5;
+}
+
+QPushButton:pressed {
+    background-color: #3a6ea5;
+}
+
+/* ================== TOOL BUTTON ================== */
+QToolButton {
+    background-color: transparent;
+    border: none;
+    padding: 4px;
+}
+
+QToolButton:hover {
+    background-color: #3d5a73;
+}
+
+/* ================== COMBOBOX ================== */
+QComboBox {
+    background-color: #2f3133;
+    border: 1px solid #555555;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #2f3133;
+    selection-background-color: #3d5a73;
+}
+
+/* ================== RADIO / CHECK ================== */
+QRadioButton, QCheckBox {
+    spacing: 6px;
+}
+
+/* ================== ТАБЛИЦА ================== */
+QTableView {
+    background-color: #2f3133;
+    gridline-color: #444444;
+    selection-background-color: #3d5a73;
+    selection-color: #ffffff;
+    alternate-background-color: #2a2c2e;
+}
+
+QTableView::item {
+    padding: 4px;
+}
+
+QTableView::item:selected {
+    background-color: #3d5a73;
+}
+
+/* ================== ЗАГОЛОВКИ ТАБЛИЦЫ ================== */
+QHeaderView::section {
+    background-color: #3a3d41;
+    border: 1px solid #444444;
+    padding: 6px;
+    font-weight: bold;
+}
+
+/* ================== SCROLLBAR ================== */
+QScrollBar:vertical {
+    background: #2b2b2b;
+    width: 12px;
+}
+
+QScrollBar::handle:vertical {
+    background: #555555;
+    min-height: 20px;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #666666;
+}
+
+/* ================== TEXT EDIT (детализация) ================== */
+QTextEdit {
+    background-color: #2f3133;
+    border: 1px solid #444444;
+    border-radius: 4px;
+    padding: 6px;
+}
+
+/* ================== SPLITTER ================== */
+QSplitter::handle {
+    background-color: #444444;
+}
+"""
+
+
 
 def main():
     app = QApplication(sys.argv)
     # app.setStyle("Fusion")  # очень важно
-    # app.setStyleSheet(APP_STYLE)
+    # app.setStyleSheet(DARK_STYLE)
     window = MainWindow()
     window.resize(1200, 800)
     window.showMaximized()

@@ -3,6 +3,7 @@ from PyQt5.QtCore import (
     Qt,
     QModelIndex
 )
+from PyQt5.QtGui import QFont
 
 
 class TableModel(QAbstractTableModel):
@@ -38,9 +39,10 @@ class TableModel(QAbstractTableModel):
 
     # ---------- required overrides ----------
 
-    def rowCount(self, parent=QModelIndex()):
-        # +1 строка под "Всего", если она есть
-        return len(self._rows) + (1 if self._total else 0)
+    def rowCount(self, parent=None):
+        if self._total:
+            return len(self._rows) + 1
+        return len(self._rows)
 
     def columnCount(self, parent=QModelIndex()):
         return len(self._columns)
@@ -52,23 +54,28 @@ class TableModel(QAbstractTableModel):
         row = index.row()
         col = index.column()
 
+        # --- выбираем правильный источник данных
+        if row < len(self._rows):
+            row_data = self._rows[row]
+            is_total_row = False
+        else:
+            row_data = self._total
+            is_total_row = True
+
+        # защита от выхода за границы
+        if col >= len(row_data):
+            return None
+
+        value = row_data[col]
+
         if role == Qt.DisplayRole:
-            value = self._get_value(row, col)
-            return "" if value is None else str(value)
+            return value
 
-        if role == Qt.TextAlignmentRole:
-            # Судья — по левому краю, остальное — по центру
-            if col == 0:
-                return Qt.AlignLeft | Qt.AlignVCenter
-            return Qt.AlignCenter
-
-        if role == Qt.FontRole:
-            # строка "Всего" — жирная
-            if self._is_total_row(row):
-                font = self.parent().font() if self.parent() else None
-                if font:
-                    font.setBold(True)
-                    return font
+        # --- жирный шрифт для итога
+        if role == Qt.FontRole and is_total_row:
+            font = QFont()
+            font.setBold(True)
+            return font
 
         return None
 
