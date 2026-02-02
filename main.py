@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 from docx import Document
 from datetime import datetime, date
 from openpyxl import Workbook
@@ -190,16 +191,15 @@ class MainWindow(QMainWindow):
         header = self.table_view.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeToContents)
         header.setDefaultAlignment(Qt.AlignCenter)
-        header = self.table_view.horizontalHeader()
 
         # не обрезать текст троеточием
-        header.setTextElideMode(Qt.ElideNone)
+        header.setTextElideMode(Qt.ElideNone)  # Управляет обрезкой текста, если он не влезает
 
         # центрирование
-        header.setDefaultAlignment(Qt.AlignCenter)
+        header.setDefaultAlignment(Qt.AlignCenter)  # Центрирует текст внутри ячеек заголовка
 
         # ширина под содержимое
-        header.setSectionResizeMode(QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(QHeaderView.ResizeToContents)  # ширина столбца = ширина самого широкого содержимого
 
         # даём место для многострочных заголовков
         header.setFixedHeight(70)
@@ -512,7 +512,18 @@ class MainWindow(QMainWindow):
 
         menu.exec_(self.details_view.mapToGlobal(pos))
 
+
+
     def _format_details_block(self, judge, column, details):
+        _PREFIX_RE = re.compile(r"\d\.\d{3}-")
+
+        def normalize_case_line(raw: str) -> str:
+            """
+            Удаляет ТОЛЬКО префикс вида '2.123-' (цифра + точка + 3 цифры + дефис).
+            Если такого шаблона нет — строка возвращается без изменений.
+            """
+            return _PREFIX_RE.sub("", raw, count=1)
+
         column = column.replace('\n', ' ')
         lines = [
             f"Судья: {judge}",
@@ -530,7 +541,7 @@ class MainWindow(QMainWindow):
             lines.append(f"{title}: {total}")
 
             for v in values:
-                v = v[6:]
+                v = normalize_case_line(v)
                 lines.append(f"  • {v}")
 
         return "\n".join(lines)
