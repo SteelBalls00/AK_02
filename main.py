@@ -6,7 +6,7 @@ from openpyxl import Workbook
 
 
 from PyQt5.QtWidgets import QFrame, QToolButton
-from PyQt5.QtCore import Qt, QDate
+from PyQt5.QtCore import Qt, QDate, QEasingCurve
 from PyQt5.QtWidgets import (
     QApplication, QMenu, QMainWindow, QWidget,
     QVBoxLayout, QComboBox, QMessageBox, QTableView,
@@ -179,11 +179,13 @@ class MainWindow(QMainWindow):
         self.table_view.verticalHeader().setVisible(False)
         self.table_view.horizontalHeader().setStretchLastSection(True)
 
-        self.table_opacity = QGraphicsOpacityEffect(self.table_view)
-        self.table_view.setGraphicsEffect(self.table_opacity)
+        self.table_opacity = QGraphicsOpacityEffect(self.table_view.viewport())
+        self.table_view.viewport().setGraphicsEffect(self.table_opacity)
+        self.table_opacity.setOpacity(1.0)  # ВАЖНО
 
         self.fade_anim = QPropertyAnimation(self.table_opacity, b"opacity")
         self.fade_anim.setDuration(150)
+        self.fade_anim.setEasingCurve(QEasingCurve.InOutQuad)
 
         header = self.table_view.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeToContents)
@@ -227,11 +229,6 @@ class MainWindow(QMainWindow):
         selection_model = self.table_view.selectionModel()
         selection_model.selectionChanged.connect(self.on_table_selection_changed)
 
-        # ================= Индикатор загрузки =================
-        self.loading_label = QLabel("Загрузка данных...")
-        self.loading_label.setAlignment(Qt.AlignCenter)
-        self.loading_label.setVisible(False)
-
         # ================= Разделитель =================
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
@@ -244,7 +241,6 @@ class MainWindow(QMainWindow):
         self.splitter.setStretchFactor(1, 2)  # детализация
 
         main_layout.addWidget(header_widget)
-        main_layout.addWidget(self.loading_label)
         main_layout.addWidget(separator)
         main_layout.addWidget(self.splitter)
 
@@ -252,26 +248,29 @@ class MainWindow(QMainWindow):
 
     def animate_table_update(self, update_callback):
         """
-        Анимирует обновление таблицы:
-        fade-out → update → fade-in
+        Полностью безопасное обновление таблицы:
+        - без мигания
+        - без микро-дёрганий
+        - без призраков старых данных
         """
 
-        def fade_in():
-            self.fade_anim.finished.disconnect()
-            self.fade_anim.setStartValue(0.0)
-            self.fade_anim.setEndValue(1.0)
-            self.fade_anim.start()
+        # если анимация уже идёт — остановить
+        if self.fade_anim.state() == QPropertyAnimation.Running:
+            self.fade_anim.stop()
 
-        def on_fade_out_finished():
-            update_callback()
-            self.fade_anim.finished.connect(fade_in)
-            self.fade_anim.setStartValue(1.0)
-            self.fade_anim.setEndValue(0.0)
-            self.fade_anim.start()
+        # 1. МГНОВЕННО скрываем содержимое таблицы
+        self.table_opacity.setOpacity(0.0)
 
-        self.fade_anim.finished.connect(on_fade_out_finished)
-        self.fade_anim.setStartValue(1.0)
-        self.fade_anim.setEndValue(0.0)
+        # 2. Полностью блокируем перерисовку
+        self.table_view.setUpdatesEnabled(False)
+        # 3. Применяем данные
+        update_callback()
+        # 4. Разрешаем перерисовку
+        self.table_view.setUpdatesEnabled(True)
+
+        # 5. Плавно показываем новую таблицу
+        self.fade_anim.setStartValue(0.0)
+        self.fade_anim.setEndValue(1.0)
         self.fade_anim.start()
 
     def toggle_theme(self, checked: bool):
@@ -662,7 +661,6 @@ class MainWindow(QMainWindow):
         self.table_view.resizeColumnsToContents()
 
     def load_table_async(self):
-        self.loading_label.setVisible(True)
         self.table_view.setEnabled(False)
 
         # 1. Получаем процессор из фабрики
@@ -690,30 +688,25 @@ class MainWindow(QMainWindow):
     def on_data_loaded(self, table_data, worker):
         def apply():
             self.model.set_table_data(table_data)
-            self.loading_label.setVisible(False)
+
+            # сортировка по судье
+            self.table_view.sortByColumn(0, Qt.AscendingOrder)
+
+            # неделя
+            self.week_label.setText(table_data.get("week", ""))
+
+            # UI
             self.table_view.setEnabled(True)
+
+            self.current_week_key = table_data.get("week")
 
         self.animate_table_update(apply)
 
-        self.loading_label.setVisible(False)
-        self.table_view.setEnabled(True)
-
-        self.model.set_table_data(table_data)
-
-        # сортировка по судье
-        self.table_view.sortByColumn(0, Qt.AscendingOrder)
-
-        self.week_label.setText(table_data.get("week", ""))
-        self.loading_label.setVisible(False)
-        self.table_view.setEnabled(True)
-
-        self.active_workers.clear()
-
-        self.current_week_key = table_data.get("week")
+        if worker in self.active_workers:
+            self.active_workers.remove(worker)
 
     def on_data_error(self, message, worker):
         QMessageBox.critical(self, "Ошибка загрузки", message)
-        self.loading_label.setVisible(False)
         self.table_view.setEnabled(True)
 
         if worker in self.active_workers:
