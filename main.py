@@ -268,6 +268,40 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(central)
 
+    def set_radio_visible(self, btn, visible: bool):
+        if not visible and btn.isChecked():
+            btn.setAutoExclusive(False)
+            btn.setChecked(False)
+            btn.setAutoExclusive(True)
+
+        btn.setVisible(visible)
+
+    def update_instance_buttons(self, court_name: str):
+        instances = self.bases_repo.get_available_instances(
+            court_name,
+            self.specialization
+        )
+
+        for inst, btn in self.instance_buttons.items():
+            btn.setEnabled(inst in instances)
+
+        # защита от невалидного состояния
+        if self.instance not in instances and instances:
+            self.instance = next(iter(instances))
+            self.instance_buttons[self.instance].setChecked(True)
+
+    def update_specialization_buttons(self, court_name: str):
+        available_specs = self.bases_repo.get_available_specializations(court_name)
+
+        for spec, btn in self.spec_buttons.items():
+            self.set_radio_visible(btn, spec in available_specs)
+
+        # гарантируем выбранную специализацию
+        if self.specialization not in available_specs and available_specs:
+            new_spec = next(iter(available_specs))
+            self.spec_buttons[new_spec].setChecked(True)
+            self.specialization = new_spec
+
     def animate_table_update(self, update_callback):
         """
         Полностью безопасное обновление таблицы:
@@ -602,7 +636,7 @@ class MainWindow(QMainWindow):
         self.details_view.setPlainText("\n\n".join(blocks))
 
     def _load_courts(self):
-        courts = self.bases_repo.get_courts()
+        courts = self.bases_repo.get_courts_with_any_pkls()
 
         self.court_combo.clear()
         self.court_combo.addItems(courts)
@@ -631,9 +665,20 @@ class MainWindow(QMainWindow):
                 self.specialization = spec
                 break
 
+        # for inst, btn in self.instance_buttons.items():
+        #     if btn.isChecked():
+        #         self.instance = inst
+        #         break
+
         self.reload_current_court()
 
     def on_court_changed(self, court_name):
+        # 1️⃣ Обновляем доступные specialization
+        self.update_specialization_buttons(court_name)
+
+        # 2️⃣ Обновляем доступные инстанции
+        self.update_instance_buttons(court_name)
+
         pkl_files = self.bases_repo.get_pkl_files(court_name)
 
         has_appeal = any(
@@ -841,6 +886,9 @@ QRadioButton, QCheckBox {
     font-weight: bold;
 }
 QRadioButton[spec="GPK"] { font-weight: bold; }
+QRadioButton::indicator:disabled {
+    background-color: #c0c0c0;
+}
 
 /* ================== LABEL ================== */
 QLabel {
@@ -968,6 +1016,15 @@ QComboBox QAbstractItemView {
 /* ================== RADIO / CHECK ================== */
 QRadioButton, QCheckBox {
     spacing: 6px;
+    font-weight: bold;
+}
+QRadioButton:disabled {
+    color: #777777;
+}
+
+QRadioButton::indicator:disabled {
+    background-color: #555555;
+    border: 1px solid #444444;
 }
 
 /* ================== ТАБЛИЦА ================== */
