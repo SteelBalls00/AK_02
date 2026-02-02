@@ -95,13 +95,15 @@ class MainWindow(QMainWindow):
         top_layout.addLayout(week_box)
 
         # --- Суд ---
-        court_box = QVBoxLayout()
+        court_group = QGroupBox("Суд")
+        court_layout = QVBoxLayout(court_group)
+
         self.court_combo = QComboBox()
         self.court_combo.currentTextChanged.connect(self.on_court_changed)
 
-        court_box.addWidget(self.court_combo)
+        court_layout.addWidget(self.court_combo)
 
-        top_layout.addLayout(court_box)
+        top_layout.addWidget(court_group)
 
         # --- Специализация ---
         spec_group = QGroupBox("Специализация")
