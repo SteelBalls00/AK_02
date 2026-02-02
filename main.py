@@ -105,15 +105,25 @@ class MainWindow(QMainWindow):
 
         # --- Специализация ---
         spec_group = QGroupBox("Специализация")
-        spec_layout = QHBoxLayout(spec_group)
+        self.spec_layout = QHBoxLayout(spec_group)
 
         self.spec_buttons = {}
 
-        for spec in ["GPK", "KAS", "AP", "AP1", "U1", "M_U1"]:
-            btn = QRadioButton(spec)
-            btn.toggled.connect(self.on_context_changed)
-            spec_layout.addWidget(btn)
-            self.spec_buttons[spec] = btn
+        specs = {
+            "GPK": "ГПК",
+            "KAS": "КАС",
+            "AP": "АП",
+            "AP1": "АП1",
+            "U1": "УГ",
+            "M_U1": "М.Уг",
+        }
+
+        for code, label in specs.items():
+            rb = QRadioButton(label)
+            rb.setProperty("spec", code)
+            rb.toggled.connect(self.on_context_changed)
+            self.spec_buttons[code] = rb
+            self.spec_layout.addWidget(rb)
 
         self.spec_buttons["GPK"].setChecked(True)
         top_layout.addWidget(spec_group)
@@ -166,7 +176,7 @@ class MainWindow(QMainWindow):
 
         top_layout.addWidget(self.theme_toggle_btn)
 
-        # ================= Перетаскиватель =================
+        # ================= Черточка перед таблицей =================
         self.splitter = QSplitter(Qt.Vertical)
 
         # ================= Таблица =================
@@ -179,6 +189,16 @@ class MainWindow(QMainWindow):
         self.table_view.setShowGrid(True)
         self.table_view.verticalHeader().setVisible(False)
         self.table_view.horizontalHeader().setStretchLastSection(True)
+
+        '''
+        Настройка высоты строк
+        20–22 — очень компактно
+        24 — комфортно
+        28 — «воздушно»
+        '''
+
+        vertical_header = self.table_view.verticalHeader()
+        vertical_header.setDefaultSectionSize(24)  # Настройка высоты строк
 
         self.table_opacity = QGraphicsOpacityEffect(self.table_view.viewport())
         self.table_view.viewport().setGraphicsEffect(self.table_opacity)
@@ -238,7 +258,7 @@ class MainWindow(QMainWindow):
         self.splitter.addWidget(self.table_view)
         self.splitter.addWidget(self.details_view)
         self.splitter.setStretchFactor(0, 8)  # таблица
-        self.splitter.setStretchFactor(1, 2)  # детализация
+        self.splitter.setStretchFactor(1, 4)  # детализация
 
         main_layout.addWidget(header_widget)
         main_layout.addWidget(separator)
@@ -811,11 +831,13 @@ QPushButton[role="week-nav"]:pressed {
     background-color: rgba(0, 0, 0, 0.15);
 }
 
-
+/* ================ RadioButton ================ */
 /* --- Radio / Check --- */
 QRadioButton, QCheckBox {
     spacing: 6px;
+    font-weight: bold;
 }
+QRadioButton[spec="GPK"] { font-weight: bold; }
 
 /* ================== LABEL ================== */
 QLabel {
