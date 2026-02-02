@@ -37,8 +37,9 @@ class BaseProcessor:
         if included_category:
             included_values = judge_data.get(included_category, [])
             if isinstance(included_values, list):
-                result.append(
-                    ("В т.ч. рассмотренные в текущем году", included_values)
-                )
+                if column == "Без движения\nсейчас (за год)":
+                    result.append(("Оставленные без движения в текущем году", included_values))
+                else:
+                    result.append(("Рассмотренные в текущем году", included_values))
 
         return result

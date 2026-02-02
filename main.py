@@ -296,6 +296,7 @@ class MainWindow(QMainWindow):
         self.fade_anim.start()
 
     def toggle_theme(self, checked: bool):
+        '''Переключение цвета темы'''
         app = QApplication.instance()
 
         if checked:
