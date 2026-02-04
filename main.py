@@ -665,11 +665,6 @@ class MainWindow(QMainWindow):
                 self.specialization = spec
                 break
 
-        # for inst, btn in self.instance_buttons.items():
-        #     if btn.isChecked():
-        #         self.instance = inst
-        #         break
-
         self.reload_current_court()
 
     def on_court_changed(self, court_name):
@@ -808,7 +803,7 @@ class MainWindow(QMainWindow):
 
         export_model_to_word(
             model=self.model,
-            specialization=self.specialization,
+            processor=self.current_processor,
             court=self.court_combo.currentText(),
             week=self.week_label.text()
         )

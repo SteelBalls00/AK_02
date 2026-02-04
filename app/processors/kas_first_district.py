@@ -5,6 +5,8 @@ class KASFirstDistrictProcessor(BaseProcessor):
     """
     КАС — 1 инстанция — районный / городской суд
     """
+    word_template_key = "district_first"
+    specialization = "KAS"
 
     COLUMN_TO_CATEGORY = {
         # 0 — Судья (специальный столбец, данных в pkl нет)

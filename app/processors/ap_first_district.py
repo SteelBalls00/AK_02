@@ -5,6 +5,8 @@ class APFirstDistrictProcessor(BaseProcessor):
     """
     АП — 1 инстанция — районный суд
     """
+    word_template_key = "district_first"
+    specialization = "AP"
 
     COLUMN_TO_CATEGORY = {
         # Служебный столбец

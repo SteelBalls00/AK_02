@@ -5,6 +5,9 @@ class GPKFirstDistrictProcessor(BaseProcessor):
     """
     ГПК — 1 инстанция — районный / городской суд
     """
+    word_template_key = "district_first"
+    # word_template_key = "district_appeal"
+    specialization = "GPK"
 
     COLUMN_TO_CATEGORY = {
         # 0 — Судья (специальный столбец, данных в pkl нет)
@@ -87,6 +90,7 @@ class GPKFirstDistrictProcessor(BaseProcessor):
             "Не сдано в канц. свыше срока",
             "Нарушений сдачи в канц. с нач. года",
         ]
+
 
     # ---------- public ----------
 

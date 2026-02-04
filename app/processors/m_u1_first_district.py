@@ -5,6 +5,8 @@ class MU1FirstDistrictProcessor(BaseProcessor):
     """
     М_У1 — 1 инстанция — районный / городской суд
     """
+    word_template_key = "district_first"
+    specialization = "M_U1"
 
     COLUMN_TO_CATEGORY = {
         # Служебный столбец

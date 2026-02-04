@@ -4,13 +4,31 @@ from docx.enum.section import WD_ORIENTATION
 from datetime import datetime
 import os
 
-from app.export.word_templates import WORD_TEMPLATES
+from app.export.word_templates import WORD_district_first_TEMPLATES, WORD_TEMPLATES
 
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.shared import Pt
 
 
-def export_model_to_word(model, specialization, court, week):
+def export_model_to_word(model, processor, court, week):
+    template_key = processor.word_template_key
+    if not template_key:
+        raise ValueError("У процессора не задан word_template_key")
+
+    templates = WORD_TEMPLATES.get(template_key)
+    if not templates:
+        raise ValueError(f"Не найден Word-шаблон: {template_key}")
+
+    specialization = processor.get_specialization()
+
+    tpl = templates.get(specialization)
+
+    if not tpl:
+        raise ValueError(
+            f"Нет Word-шаблона для specialization={specialization}, "
+            f"processor={processor.__class__.__name__}"
+        )
+
     document = Document()
 
     # --- Альбомный лист ---
@@ -33,7 +51,6 @@ def export_model_to_word(model, specialization, court, week):
 
     # --- Шапка ---
     for c in range(cols):
-        tpl = WORD_TEMPLATES.get(specialization)
         headers = tpl.get("headers") if tpl else None
 
         for c in range(cols):
@@ -51,7 +68,6 @@ def export_model_to_word(model, specialization, court, week):
             row[c].text = str(model.data(model.index(r, c)))
 
     # --- Объединения столбцов ---
-    tpl = WORD_TEMPLATES.get(specialization)
     if tpl:
         for (r1, c1), (r2, c2), text in tpl["merge"]:
             cell = table.cell(r1, c1)

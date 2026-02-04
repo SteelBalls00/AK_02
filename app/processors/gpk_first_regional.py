@@ -5,6 +5,8 @@ class GPKFirstRegionalProcessor(BaseProcessor):
     """
     ГПК — 1 инстанция — областной суд
     """
+    word_template_key = "regional_first"
+    specialization = "GPK"
 
     def __init__(self):
         self.columns = [

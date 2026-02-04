@@ -53,5 +53,8 @@ class ProcessorFactory:
         if key == ("GPK", "appeal", "regional"):
             return GPKAppealRegionalProcessor()
 
+        if key == ("KAS", "appeal", "regional"):
+            return GPKAppealRegionalProcessor()
+
 
         raise ValueError("Нет процессора для контекста: %s" % (key,))
