@@ -13,6 +13,7 @@ Processor — «как превратить данные в таблицу»
 '''
 from app.processors.gpk_first_district import GPKFirstDistrictProcessor
 from app.processors.ap1_first_district import AP1FirstDistrictProcessor
+from app.processors.kas_appeal_regional import KASAppealRegionalProcessor
 from app.processors.kas_first_regional import KASFirstRegionalProcessor
 from app.processors.u1_first_district import U1FirstDistrictProcessor
 from app.processors.m_u1_first_district import MU1FirstDistrictProcessor
@@ -58,7 +59,7 @@ class ProcessorFactory:
             return KASFirstRegionalProcessor()
 
         if key == ("KAS", "appeal", "regional"):
-            return GPKAppealRegionalProcessor()
+            return KASAppealRegionalProcessor()
 
 
         raise ValueError("Нет процессора для контекста: %s" % (key,))

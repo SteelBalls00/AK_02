@@ -60,6 +60,8 @@ class MainWindow(QMainWindow):
         self._load_courts()
 
     def _init_ui(self):
+        self._ui_ready = False
+
         central = QWidget(self)
         main_layout = QVBoxLayout(central)
 
@@ -138,14 +140,15 @@ class MainWindow(QMainWindow):
 
         first_btn = QRadioButton("1 инстанция")
         first_btn.instance_value = "first"
-        first_btn.toggled.connect(self.on_context_changed)
 
         appeal_btn = QRadioButton("Апелляция")
         appeal_btn.instance_value = "appeal"
-        appeal_btn.toggled.connect(self.on_context_changed)
 
         self.instance_buttons["first"] = first_btn
         self.instance_buttons["appeal"] = appeal_btn
+
+        appeal_btn.toggled.connect(self.on_context_changed)
+        first_btn.toggled.connect(self.on_context_changed)
 
         inst_layout.addWidget(first_btn)
         inst_layout.addWidget(appeal_btn)
@@ -267,6 +270,8 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.splitter)
 
         self.setCentralWidget(central)
+
+        self._ui_ready = True
 
     def set_radio_visible(self, btn, visible: bool):
         if not visible and btn.isChecked():
@@ -660,9 +665,19 @@ class MainWindow(QMainWindow):
             self.on_court_changed(court)
 
     def on_context_changed(self):
+        if not getattr(self, "_ui_ready", False):
+            return
+
+        # specialization
         for spec, btn in self.spec_buttons.items():
             if btn.isChecked():
                 self.specialization = spec
+                break
+
+        # instance
+        for inst, btn in self.instance_buttons.items():
+            if btn.isChecked():
+                self.instance = inst
                 break
 
         self.reload_current_court()
