@@ -1,12 +1,12 @@
 from app.processors.base import BaseProcessor
 
 
-class GPKFirstRegionalProcessor(BaseProcessor):
+class KASFirstRegionalProcessor(BaseProcessor):
     """
     ГПК — 1 инстанция — областной суд
     """
     word_template_key = "regional_first"
-    specialization = "GPK"
+    specialization = "KAS"
 
     COLUMN_TO_CATEGORY = {
         # 0 — Судья (специальный столбец, данных в pkl нет)
