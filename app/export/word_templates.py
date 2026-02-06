@@ -614,7 +614,7 @@ WORD_regional_appeal_TEMPLATES = {
 
     "GPK": {
         'headers': [
-            "Судья1",
+            "Судья",
             "Передано\nза неделю",
             "Передано\nс начала года",
             'Приостановлено\nдел',
@@ -669,6 +669,8 @@ WORD_regional_appeal_TEMPLATES = {
 WORD_TEMPLATES = {
     "district_first": WORD_district_first_TEMPLATES,
     "district_appeal": WORD_district_appeal_TEMPLATES,
+    # "regional_first": WORD_district_first_TEMPLATES,
+    # "regional_appeal": WORD_district_appeal_TEMPLATES,
     "regional_first": WORD_regional_first_TEMPLATES,
     "regional_appeal": WORD_regional_appeal_TEMPLATES,
 }

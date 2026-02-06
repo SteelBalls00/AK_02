@@ -65,7 +65,16 @@ def export_model_to_word(model, processor, court, week):
     for r in range(rows):
         row = table.add_row().cells
         for c in range(cols):
-            row[c].text = str(model.data(model.index(r, c)))
+            cell = row[c]
+            cell.text = str(model.data(model.index(r, c)))
+
+            p = cell.paragraphs[0]
+
+            # 🔥 ВЫРАВНИВАНИЕ
+            if c == 0:
+                p.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT  # первый столбец
+            else:
+                p.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
 
     # --- Объединения столбцов ---
     if tpl:

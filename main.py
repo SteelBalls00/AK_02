@@ -238,13 +238,14 @@ class MainWindow(QMainWindow):
 
         # --- Область детализации ---
         self.details_view = QTextEdit()
+
         self.details_view.setReadOnly(True)
         self.details_view.setMinimumHeight(30)
         self.details_view.setContextMenuPolicy(Qt.CustomContextMenu)
         self.details_view.customContextMenuRequested.connect(
             self.show_details_context_menu
         )
-        self.details_view.setLineWrapMode(QTextEdit.NoWrap)
+        self.details_view.setLineWrapMode(QTextEdit.WidgetWidth)
         self.details_view.setFont(QFont("Consolas", 10))
 
         self.details_view.setPlaceholderText(
