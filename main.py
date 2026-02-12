@@ -1,3 +1,18 @@
+# pyinstaller --onedir --noconsole --hidden-import=openpyxl --name="AK_v1.5" main.py
+
+'''
+- путь к базам в файле настроек
+- графики и детализация к ним
+- столбцы для бездвижа и возвратов
+- закрепить первый столбец с судьями,в случае ширины таблицы за пределы экрана
+
+поправить:
+- бокс с выбором суда иногда появляется пустой при наличии 1 суда
+
+глобальные правки:
+- поправить или сделать новый апдейт
+'''
+
 import sys
 import os
 import re
@@ -120,6 +135,7 @@ class MainWindow(QMainWindow):
             "AP1": "АП1",
             "U1": "УГ",
             "M_U1": "М.Уг",
+            "M_AOS": "М.",
         }
 
         for code, label in specs.items():
@@ -297,7 +313,7 @@ class MainWindow(QMainWindow):
             self.instance_buttons[self.instance].setChecked(True)
 
     def update_specialization_buttons(self, court_name: str):
-        available_specs = self.bases_repo.get_available_specializations(court_name)
+        available_specs = self.bases_repo.get_available_specializations(court_name, self.instance)
 
         for spec, btn in self.spec_buttons.items():
             self.set_radio_visible(btn, spec in available_specs)
@@ -684,6 +700,14 @@ class MainWindow(QMainWindow):
         self.reload_current_court()
 
     def on_court_changed(self, court_name):
+        # Получаем доступные инстанции для суда
+        available_instances = self.bases_repo.get_available_instances(court_name, self.specialization)
+
+        # 🔑 Если текущая инстанция недоступна — переключаемся
+        if self.instance not in available_instances:
+            self.instance = "first"
+            self.instance_buttons["first"].setChecked(True)
+
         # 1️⃣ Обновляем доступные specialization
         self.update_specialization_buttons(court_name)
 
@@ -692,12 +716,14 @@ class MainWindow(QMainWindow):
 
         pkl_files = self.bases_repo.get_pkl_files(court_name)
 
+        # есть ли для выбранной специализации апел. база
         has_appeal = any(
             info.instance == "appeal" and info.specialization == self.specialization
             for name, info in PKL_MAPPING.items()
             if name in pkl_files
         )
 
+        # и если есть, то ставим активной
         self.instance_buttons["appeal"].setEnabled(has_appeal)
 
         if not has_appeal and self.instance == "appeal":

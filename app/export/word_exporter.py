@@ -23,6 +23,8 @@ def export_model_to_word(model, processor, court, week):
 
     tpl = templates.get(specialization)
 
+    merges = tpl.get("merge", []) if tpl else []
+
     if not tpl:
         raise ValueError(
             f"Нет Word-шаблона для specialization={specialization}, "

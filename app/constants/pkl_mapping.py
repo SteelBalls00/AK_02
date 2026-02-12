@@ -19,6 +19,7 @@ PKL_MAPPING = {
     # 1 инстанция — областной суд
     "result4_with_3.pkl":   PKLInfo("GPK", "first",  "regional"),
     "result4_with_3a.pkl":   PKLInfo("KAS", "first",  "regional"),
+    "result4_M_AOS.pkl":   PKLInfo("M_AOS", "first",  "regional"),
 
     # апелляция — областной суд
     "result4_with_33.pkl":  PKLInfo("GPK", "appeal", "regional"),

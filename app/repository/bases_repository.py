@@ -42,17 +42,21 @@ class BasesRepository:
 
         return sorted(result)
 
-    def get_available_specializations(self, court_name: str) -> Set[str]:
+    def get_available_specializations(self, court_name, instance):
         """
-        Возвращает доступные специализации (GPK, KAS, ...)
-        для конкретного суда
+        Возвращает доступные специализации
+        для конкретного суда и инстанции
         """
+
         pkl_files = self.get_pkl_files(court_name)
 
         specs = {
             info.specialization
             for name, info in PKL_MAPPING.items()
-            if name in pkl_files
+            if (
+                    name in pkl_files
+                    and info.instance == instance
+            )
         }
 
         return specs
