@@ -923,8 +923,17 @@ QRadioButton, QCheckBox {
     font-weight: bold;
 }
 QRadioButton[spec="GPK"] { font-weight: bold; }
+
+QRadioButton::indicator {
+    width: 14px;
+    height: 14px;
+}
+
 QRadioButton::indicator:disabled {
     background-color: #c0c0c0;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
 }
 
 /* ================== LABEL ================== */
@@ -1062,6 +1071,9 @@ QRadioButton:disabled {
 QRadioButton::indicator:disabled {
     background-color: #555555;
     border: 1px solid #444444;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
 }
 
 /* ================== ТАБЛИЦА ================== */
