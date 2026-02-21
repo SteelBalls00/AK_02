@@ -128,10 +128,13 @@ class GraphWidget(QWidget):
         self.raw_data = raw_data
         self.processor = processor
 
-        self.weeks = sorted(
+        all_weeks = sorted(
             raw_data.keys(),
             key=lambda w: datetime.strptime(w.split(" - ")[0], "%d.%m.%Y")
         )
+
+        # берём только последние 20
+        self.weeks = all_weeks[-20:]
 
         self._parse_week_dates()
 
@@ -147,6 +150,7 @@ class GraphWidget(QWidget):
 
         # Теперь создаём UI
         self._fill_categories()
+        self.category_combo.currentIndexChanged.connect(self._fill_judges)
         self._fill_judges()
 
         self.update_chart()
@@ -202,9 +206,17 @@ class GraphWidget(QWidget):
     def _fill_judges(self):
         self.judges_list.clear()
 
+        category = self.category_combo.currentText()
         judges = set()
-        for week in self.raw_data.values():
-            judges.update(week.keys())
+
+        # берём только отображаемые недели
+        for week_key in self.weeks:
+            week_data = self.raw_data.get(week_key, {})
+
+            for judge, judge_data in week_data.items():
+                cases = judge_data.get(category, [])
+                if cases:  # есть дела по выбранной категории
+                    judges.add(judge)
 
         judges = sorted(judges)
 
@@ -294,7 +306,14 @@ class GraphWidget(QWidget):
             category = self.category_combo.currentText()
             series = self._build_series(category, judges, week_indexes)
 
-            for judge, values in series.items():
+            # 🔥 фильтрация судей с нулевыми значениями
+            filtered_series = {
+                judge: values
+                for judge, values in series.items()
+                if any(v > 0 for v in values)
+            }
+
+            for judge, values in filtered_series.items():
                 ax.plot(
                     range(len(values)),
                     values,
@@ -307,7 +326,7 @@ class GraphWidget(QWidget):
             # линия "Всего"
             if self.total_checkbox.isChecked():
                 totals = [
-                    sum(series[j][i] for j in series)
+                    sum(filtered_series[j][i] for j in filtered_series)
                     for i in range(len(next(iter(series.values()))))
                 ]
                 ax.plot(
@@ -412,26 +431,22 @@ class GraphWidget(QWidget):
         line = event.artist
         mouse_event = event.mouseevent
 
-        # индекс точки
         ind = event.ind[0]
-
-        judge = line.get_label()
 
         week_indexes = self._get_filtered_weeks()
 
         if not (0 <= ind < len(week_indexes)):
             return
 
-        original_index, week_key = week_indexes[ind]
+        _, week_key = week_indexes[ind]
 
+        judge = line.get_label()
         category = self.category_combo.currentText()
 
-        # Получаем значение точки
         ydata = line.get_ydata()
         value = int(ydata[ind])
 
         data = {
-            "week_index": original_index,
             "week_key": week_key,
             "category": category,
             "judge": judge,

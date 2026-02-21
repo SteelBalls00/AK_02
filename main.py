@@ -800,6 +800,12 @@ class MainWindow(QMainWindow):
         self.current_context = context
         self.current_pkl_path = pkl_path
 
+        # обновляем графики ТОЛЬКО при смене pkl
+        self.graph_widget.set_data(
+            raw_data=self.current_raw_data,
+            processor=ProcessorFactory.get(context)
+        )
+
         weeks = list(raw_data.keys())
         self.max_week_index = max(0, len(weeks) - 1)
 
@@ -844,30 +850,45 @@ class MainWindow(QMainWindow):
 
     def on_graph_point_clicked(self, data):
 
-        week_index = data["week_index"]
         week_key = data["week_key"]
         category = data["category"]
         judge = data["judge"]
-        value = data["value"]
         is_double = data["double_click"]
 
-        # двойной клик → переход к таблице
+        weeks = list(self.current_raw_data.keys())
+
+        if week_key not in weeks:
+            return
+
+        real_week_index = weeks.index(week_key)
+
+        # 🔵 Двойной клик → перейти к таблице
         if is_double:
-            self.week_index = week_index
+            self.week_index = real_week_index
             self.switch_to_table()
             self.reload_current_court()
             return
 
-        # одинарный клик → детализация
-        details = self.current_processor.get_cell_details(
-            judge=judge,
-            column=category,
-            week_index=week_index
-        )
+        # 🔵 Одинарный клик → берём напрямую из raw_data
+        week_data = self.current_raw_data.get(week_key, {})
+        judge_data = week_data.get(judge, {})
+        cases = judge_data.get(category, [])
 
-        self.details_view.setPlainText(
-            self._format_details_block(judge, category, details)
-        )
+        if not cases:
+            self.details_view.setPlainText("Детализация отсутствует.")
+            return
+
+        lines = [
+            f"Неделя: {week_key}",
+            f"Судья: {judge}",
+            f"Показатель: {category}",
+            "",
+        ]
+
+        for case in cases:
+            lines.append(f"• {case}")
+
+        self.details_view.setPlainText("\n".join(lines))
 
     def on_data_loaded(self, table_data, worker):
         def apply():
@@ -885,12 +906,6 @@ class MainWindow(QMainWindow):
             self.current_week_key = table_data.get("week")
 
         self.animate_table_update(apply)
-
-        # передаём полный raw_data
-        self.graph_widget.set_data(
-            raw_data=self.current_raw_data,
-            processor=self.current_processor
-        )
 
         if worker in self.active_workers:
             self.active_workers.remove(worker)
