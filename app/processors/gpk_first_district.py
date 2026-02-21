@@ -6,7 +6,6 @@ class GPKFirstDistrictProcessor(BaseProcessor):
     ГПК — 1 инстанция — районный / городской суд
     """
     word_template_key = "district_first"
-    # word_template_key = "district_appeal"
     specialization = "GPK"
 
     COLUMN_TO_CATEGORY = {
