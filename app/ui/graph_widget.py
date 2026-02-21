@@ -334,6 +334,7 @@ class GraphWidget(QWidget):
                     totals,
                     linestyle="--",
                     color="black",
+                    label="__total__",  # специальная метка
                     picker=6
                 )
 
@@ -428,11 +429,9 @@ class GraphWidget(QWidget):
 
     def on_pick(self, event):
 
-        line = event.artist
         mouse_event = event.mouseevent
 
         ind = event.ind[0]
-
         week_indexes = self._get_filtered_weeks()
 
         if not (0 <= ind < len(week_indexes)):
@@ -440,17 +439,28 @@ class GraphWidget(QWidget):
 
         _, week_key = week_indexes[ind]
 
-        judge = line.get_label()
         category = self.category_combo.currentText()
 
+        # 🔥 Получаем значение по Y
+        line = event.artist
         ydata = line.get_ydata()
-        value = int(ydata[ind])
+        clicked_value = int(ydata[ind])
+
+        # 🔥 Ищем ВСЕХ судей с таким значением
+        matched_judges = []
+
+        week_data = self.raw_data.get(week_key, {})
+
+        for judge, judge_data in week_data.items():
+            cases = judge_data.get(category, [])
+            if len(cases) == clicked_value:
+                matched_judges.append(judge)
 
         data = {
             "week_key": week_key,
             "category": category,
-            "judge": judge,
-            "value": value,
+            "judges": matched_judges,
+            "value": clicked_value,
             "double_click": mouse_event.dblclick
         }
 

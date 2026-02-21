@@ -852,7 +852,7 @@ class MainWindow(QMainWindow):
 
         week_key = data["week_key"]
         category = data["category"]
-        judge = data["judge"]
+        judges = data["judges"]
         is_double = data["double_click"]
 
         weeks = list(self.current_raw_data.keys())
@@ -862,33 +862,41 @@ class MainWindow(QMainWindow):
 
         real_week_index = weeks.index(week_key)
 
-        # 🔵 Двойной клик → перейти к таблице
+        # двойной клик → перейти к таблице
         if is_double:
             self.week_index = real_week_index
             self.switch_to_table()
             self.reload_current_court()
             return
 
-        # 🔵 Одинарный клик → берём напрямую из raw_data
         week_data = self.current_raw_data.get(week_key, {})
-        judge_data = week_data.get(judge, {})
-        cases = judge_data.get(category, [])
-
-        if not cases:
-            self.details_view.setPlainText("Детализация отсутствует.")
-            return
 
         lines = [
             f"Неделя: {week_key}",
-            f"Судья: {judge}",
             f"Показатель: {category}",
-            "",
+            ""
         ]
 
-        for case in cases:
-            lines.append(f"• {case}")
+        has_data = False
 
-        self.details_view.setPlainText("\n".join(lines))
+        for judge in judges:
+            judge_data = week_data.get(judge, {})
+            cases = judge_data.get(category, [])
+
+            if not cases:
+                continue
+
+            has_data = True
+
+            lines.append(f"{judge}:")
+            for case in cases:
+                lines.append(f"  • {case}")
+            lines.append("")
+
+        if not has_data:
+            self.details_view.setPlainText("Детализация отсутствует.")
+        else:
+            self.details_view.setPlainText("\n".join(lines))
 
     def on_data_loaded(self, table_data, worker):
         def apply():
