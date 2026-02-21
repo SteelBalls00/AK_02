@@ -22,19 +22,17 @@ from datetime import datetime, date
 from openpyxl import Workbook
 
 
-from PyQt5.QtWidgets import QFrame, QToolButton
 from PyQt5.QtCore import Qt, QDate, QEasingCurve
 from PyQt5.QtWidgets import (
     QApplication, QMenu, QMainWindow, QWidget,
     QVBoxLayout, QComboBox, QMessageBox, QTableView,
     QRadioButton, QGroupBox, QHBoxLayout, QPushButton,
     QLabel, QHeaderView, QTextEdit, QSplitter,
-    QCalendarWidget, QDialog,
+    QCalendarWidget, QDialog, QStackedWidget,
+    QFrame, QToolButton, QGraphicsOpacityEffect
 )
 from PyQt5.QtGui import QIcon, QFont
 from PyQt5.QtCore import QSize, QPropertyAnimation
-from PyQt5.QtWidgets import QGraphicsOpacityEffect
-
 
 from app.constants.pkl_mapping import PKL_MAPPING
 from app.repository.bases_repository import BasesRepository
@@ -44,6 +42,7 @@ from app.domain.pkl_selector import select_pkl_for_context
 from app.ui.table_model import TableModel
 from app.workers.data_load_worker import DataLoadWorker
 from app.export.word_exporter import export_model_to_word
+from app.ui.graph_widget import GraphWidget
 
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "bases")
@@ -63,6 +62,7 @@ class MainWindow(QMainWindow):
 
         self.current_pkl_path = None
         self.current_raw_data = None
+        self.full_raw_data = None
         self.current_context = None
 
         self.week_index = 0
@@ -185,6 +185,23 @@ class MainWindow(QMainWindow):
 
         top_layout.addWidget(self.word_export_btn)
 
+        # --- Переключатель представления ---
+        self.view_table_btn = QPushButton("Таблица")
+        self.view_chart_btn = QPushButton("Графики")
+
+        for btn in (self.view_table_btn, self.view_chart_btn):
+            btn.setCheckable(True)
+            btn.setMinimumHeight(48)
+            btn.setMinimumWidth(120)
+
+        self.view_table_btn.setChecked(True)
+
+        self.view_table_btn.clicked.connect(self.switch_to_table)
+        self.view_chart_btn.clicked.connect(self.switch_to_chart)
+
+        top_layout.addWidget(self.view_table_btn)
+        top_layout.addWidget(self.view_chart_btn)
+
         # растяжка, чтобы элементы не слипались
         top_layout.addStretch()
 
@@ -278,7 +295,18 @@ class MainWindow(QMainWindow):
         separator.setFrameShadow(QFrame.Sunken)
 
         # ================= Сборка =================
-        self.splitter.addWidget(self.table_view)
+        self.stacked_widget = QStackedWidget()
+
+        # Страница 0 — таблица
+        self.stacked_widget.addWidget(self.table_view)
+
+        # Страница 1 — графики
+        self.graph_widget = GraphWidget()
+        self.graph_widget.point_clicked.connect(self.on_graph_point_clicked)
+
+        self.stacked_widget.addWidget(self.graph_widget)
+
+        self.splitter.addWidget(self.stacked_widget)
         self.splitter.addWidget(self.details_view)
         self.splitter.setStretchFactor(0, 8)  # таблица
         self.splitter.setStretchFactor(1, 4)  # детализация
@@ -290,6 +318,50 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         self._ui_ready = True
+
+    def on_graph_point_clicked(self, data):
+
+        week_index = data["week_index"]
+        week_key = data["week_key"]
+        category = data["category"]
+        judge = data["judge"]
+        value = data["value"]
+        is_double = data["double_click"]
+
+        # ====== Если двойной клик ======
+        if is_double:
+            self.week_index = week_index
+            self.switch_to_table()
+            self.reload_current_court()
+            return
+
+        # ====== Одинарный клик ======
+
+        lines = [
+            f"Неделя: {week_key}",
+            f"Судья: {judge}",
+            f"Показатель: {category}",
+            f"Значение: {value}",
+            ""
+        ]
+
+        week_data = self.current_raw_data.get(week_key, {})
+        cases = week_data.get(judge, {}).get(category, [])
+
+        for case in cases:
+            lines.append(f"  • {case}")
+
+        self.details_view.setPlainText("\n".join(lines))
+
+    def switch_to_table(self):
+        self.view_table_btn.setChecked(True)
+        self.view_chart_btn.setChecked(False)
+        self.stacked_widget.setCurrentIndex(0)
+
+    def switch_to_chart(self):
+        self.view_chart_btn.setChecked(True)
+        self.view_table_btn.setChecked(False)
+        self.stacked_widget.setCurrentIndex(1)
 
     def set_radio_visible(self, btn, visible: bool):
         if not visible and btn.isChecked():
@@ -756,6 +828,7 @@ class MainWindow(QMainWindow):
         # загружаем pkl ОДИН раз
         raw_data, context = self.stats_repo.load(pkl_path)
 
+        self.full_raw_data = raw_data
         self.current_raw_data = raw_data
         self.current_context = context
         self.current_pkl_path = pkl_path
@@ -789,7 +862,7 @@ class MainWindow(QMainWindow):
         # 3. Запускаем воркер
         worker = DataLoadWorker(
             processor=processor,
-            raw_data=self.current_raw_data,
+            raw_data=self.full_raw_data,
             week_index=self.week_index
         )
 
@@ -819,8 +892,26 @@ class MainWindow(QMainWindow):
 
         self.animate_table_update(apply)
 
+        # self.full_raw_data = worker.raw_data
+
+        # 👉 ОБНОВЛЯЕМ ГРАФИКИ ВСЕМИ НЕДЕЛЯМИ
+        self.graph_widget.set_data(
+            raw_data=self.full_raw_data,
+            processor=self.current_processor
+        )
+
+        # текущая неделя для таблицы
+        self.current_raw_data = {
+            list(self.full_raw_data.keys())[self.week_index]:
+                list(self.full_raw_data.values())[self.week_index]
+        }
+
         if worker in self.active_workers:
-            self.active_workers.remove(worker)
+            self.remove = self.active_workers.remove(worker)
+
+        print("RAW_DATA_WEEKS:", len(self.current_raw_data))
+        print(self.current_raw_data.keys())
+
 
     def on_data_error(self, message, worker):
         QMessageBox.critical(self, "Ошибка загрузки", message)
