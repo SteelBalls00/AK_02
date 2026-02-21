@@ -2,10 +2,11 @@
 
 '''
 - путь к базам в файле настроек
-- графики и детализация к ним
 - столбцы для бездвижа и возвратов
 - закрепить первый столбец с судьями,в случае ширины таблицы за пределы экрана
 - в детализации отделить визуально рассмотренные в году
+- скрины графиков
+-
 
 поправить:
 - бокс с выбором суда иногда появляется пустой при наличии 1 суда
@@ -849,6 +850,13 @@ class MainWindow(QMainWindow):
         worker.start()
 
     def on_graph_point_clicked(self, data):
+        def normalize_case_line(raw: str) -> str:
+            """
+            Удаляет ТОЛЬКО префикс вида '2.123-' (цифра + точка + 3 цифры + дефис).
+            Если такого шаблона нет — строка возвращается без изменений.
+            """
+            _PREFIX_RE = re.compile(r"\d\.\d{3}-")
+            return _PREFIX_RE.sub("", raw, count=1)
 
         week_key = data["week_key"]
         category = data["category"]
@@ -888,9 +896,12 @@ class MainWindow(QMainWindow):
 
             has_data = True
 
-            lines.append(f"{judge}:")
+            count = len(cases)
+
+            lines.append(f"{judge} — дел: {count}")
             for case in cases:
-                lines.append(f"  • {case}")
+                lines.append(f"  • {normalize_case_line(case)}")
+            lines.append("-" * 40)
             lines.append("")
 
         if not has_data:

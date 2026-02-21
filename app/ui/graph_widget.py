@@ -95,8 +95,8 @@ class GraphWidget(QWidget):
         self.date_from.setCalendarPopup(True)
         self.date_to.setCalendarPopup(True)
 
-        self.date_from.dateChanged.connect(self.update_chart)
-        self.date_to.dateChanged.connect(self.update_chart)
+        self.date_from.dateChanged.connect(self._on_date_changed)
+        self.date_to.dateChanged.connect(self._on_date_changed)
 
         left_panel.addWidget(self.date_from)
         left_panel.addWidget(self.date_to)
@@ -124,6 +124,10 @@ class GraphWidget(QWidget):
 
     # ---------------- PUBLIC API ----------------
 
+    def _on_date_changed(self):
+        self._fill_judges()
+        self.update_chart()
+
     def set_data(self, raw_data, processor):
         self.raw_data = raw_data
         self.processor = processor
@@ -134,7 +138,7 @@ class GraphWidget(QWidget):
         )
 
         # берём только последние 20
-        self.weeks = all_weeks[-20:]
+        self.weeks = all_weeks
 
         self._parse_week_dates()
 
@@ -169,10 +173,13 @@ class GraphWidget(QWidget):
         if not self._week_dates:
             return
 
-        first = self._week_dates[0][0]
+        if len(self._week_dates) >= 20:
+            first = self._week_dates[-20][0]
+        else:
+            first = self._week_dates[0][0]
+
         last = self._week_dates[-1][1]
 
-        # 🚨 ВАЖНО: блокируем сигналы
         self.date_from.blockSignals(True)
         self.date_to.blockSignals(True)
 
@@ -182,8 +189,8 @@ class GraphWidget(QWidget):
         self.date_from.blockSignals(False)
         self.date_to.blockSignals(False)
 
-        print("WEEKS:", len(self.weeks))
-        print("FILTERED:", len(self._get_filtered_weeks()))
+        # print("_parse_week_dates - WEEKS:", len(self.weeks))
+        # print("_parse_week_dates - FILTERED:", len(self._get_filtered_weeks()))
 
     def _fill_categories(self):
         self.category_combo.clear()
@@ -209,13 +216,14 @@ class GraphWidget(QWidget):
         category = self.category_combo.currentText()
         judges = set()
 
-        # берём только отображаемые недели
-        for week_key in self.weeks:
+        week_indexes = self._get_filtered_weeks()
+
+        for _, week_key in week_indexes:
             week_data = self.raw_data.get(week_key, {})
 
             for judge, judge_data in week_data.items():
                 cases = judge_data.get(category, [])
-                if cases:  # есть дела по выбранной категории
+                if cases:
                     judges.add(judge)
 
         judges = sorted(judges)
@@ -238,15 +246,28 @@ class GraphWidget(QWidget):
         date_from = self.date_from.date().toPyDate()
         date_to = self.date_to.date().toPyDate()
 
+        # 🔥 защита от перевёрнутого диапазона
+        if date_from > date_to:
+            self.date_from.blockSignals(True)
+            self.date_to.blockSignals(True)
+
+            self.date_from.setDate(QDate(date_to.year, date_to.month, date_to.day))
+            self.date_to.setDate(QDate(date_from.year, date_from.month, date_from.day))
+
+            self.date_from.blockSignals(False)
+            self.date_to.blockSignals(False)
+
         result = []
 
         for i, (start, end) in enumerate(self._week_dates):
             start_date = start.date()
             end_date = end.date()
 
-            # проверяем пересечение диапазонов
             if start_date <= date_to and end_date >= date_from:
                 result.append((i, self.weeks[i]))
+
+        # print("_get_filtered_weeks - FROM:", date_from, "TO:", date_to)
+        # print("_get_filtered_weeks - result:", result)
 
         return result
 
@@ -291,7 +312,7 @@ class GraphWidget(QWidget):
 
         week_indexes = self._get_filtered_weeks()
         if not week_indexes:
-            self.canvas.draw()
+            # self.canvas.draw()
             return
 
         judges = self._get_selected_judges()
