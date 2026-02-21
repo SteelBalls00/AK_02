@@ -6,7 +6,7 @@
 - закрепить первый столбец с судьями,в случае ширины таблицы за пределы экрана
 - в детализации отделить визуально рассмотренные в году
 - скрины графиков
--
+- масшабирование колесиком мыши
 
 поправить:
 - бокс с выбором суда иногда появляется пустой при наличии 1 суда
@@ -312,7 +312,7 @@ class MainWindow(QMainWindow):
         self.splitter.addWidget(self.stacked_widget)
         self.splitter.addWidget(self.details_view)
         self.splitter.setStretchFactor(0, 8)  # таблица
-        self.splitter.setStretchFactor(1, 4)  # детализация
+        self.splitter.setStretchFactor(1, 6)  # детализация
 
         main_layout.addWidget(header_widget)
         main_layout.addWidget(separator)

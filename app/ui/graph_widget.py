@@ -54,6 +54,7 @@ class GraphWidget(QWidget):
         self._week_dates = []
         self.judge_colors = {}
         self.category_colors = {}
+        self._user_range_selected = False
 
         self._init_ui()
 
@@ -125,6 +126,7 @@ class GraphWidget(QWidget):
     # ---------------- PUBLIC API ----------------
 
     def _on_date_changed(self):
+        self._user_range_selected = True
         self._fill_judges()
         self.update_chart()
 
@@ -173,21 +175,23 @@ class GraphWidget(QWidget):
         if not self._week_dates:
             return
 
-        if len(self._week_dates) >= 20:
-            first = self._week_dates[-20][0]
-        else:
-            first = self._week_dates[0][0]
+        if not self._user_range_selected:
+            # только при первом запуске
+            if len(self._week_dates) >= 20:
+                first = self._week_dates[-20][0]
+            else:
+                first = self._week_dates[0][0]
 
-        last = self._week_dates[-1][1]
+            last = self._week_dates[-1][1]
 
-        self.date_from.blockSignals(True)
-        self.date_to.blockSignals(True)
+            self.date_from.blockSignals(True)
+            self.date_to.blockSignals(True)
 
-        self.date_from.setDate(QDate(first.year, first.month, first.day))
-        self.date_to.setDate(QDate(last.year, last.month, last.day))
+            self.date_from.setDate(QDate(first.year, first.month, first.day))
+            self.date_to.setDate(QDate(last.year, last.month, last.day))
 
-        self.date_from.blockSignals(False)
-        self.date_to.blockSignals(False)
+            self.date_from.blockSignals(False)
+            self.date_to.blockSignals(False)
 
         # print("_parse_week_dates - WEEKS:", len(self.weeks))
         # print("_parse_week_dates - FILTERED:", len(self._get_filtered_weeks()))
