@@ -601,6 +601,7 @@ class GraphWidget(QWidget):
 
             # ---- линия "Всего" (НЕ зависит от галочек)
             if self.total_checkbox.isChecked() and full_series:
+
                 totals = [
                     sum(full_series[j][i] for j in full_series)
                     for i in range(len(week_indexes))
@@ -613,6 +614,15 @@ class GraphWidget(QWidget):
                     color="black",
                     label="__total__"
                 )
+
+                # 🔥 если нет выбранных судей — вручную задать Y-лимиты
+                if not selected_judges:
+                    y_min = min(totals)
+                    y_max = max(totals)
+
+                    padding = (y_max - y_min) * 0.05 if y_max != y_min else 1
+
+                    self.ax.set_ylim(y_min - padding, y_max + padding)
 
             self.ax.set_title(category)
 
