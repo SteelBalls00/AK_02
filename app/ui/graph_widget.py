@@ -68,6 +68,9 @@ class GraphWidget(QWidget):
         self.category_colors = {}
         self._user_range_selected = False
         self._hover_annotation = None
+        self._pan_start = None
+        self._pan_xlim = None
+        self._pan_ylim = None
 
         self._init_ui()
 
@@ -132,11 +135,126 @@ class GraphWidget(QWidget):
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
         self.canvas.mpl_connect("motion_notify_event", self._on_hover)
+        self.canvas.mpl_connect("scroll_event", self._on_scroll)
+        self.canvas.mpl_connect("button_press_event", self._on_press)
+        self.canvas.mpl_connect("button_release_event", self._on_release)
+        self.canvas.mpl_connect("motion_notify_event", self._on_pan_motion)
 
         layout.addLayout(left_panel, 1)
         layout.addWidget(self.canvas, 5)
 
         self.canvas.mpl_connect("pick_event", self.on_pick)
+
+    def _reset_zoom(self):
+
+        if not hasattr(self, "ax"):
+            return
+
+        week_indexes = self._get_filtered_weeks()
+        if not week_indexes:
+            return
+
+        # --- Сброс X ---
+        self.ax.set_xlim(0, len(week_indexes) - 1)
+
+        # --- Сброс Y ---
+        y_values = []
+
+        for line in self.ax.get_lines():
+            y_values.extend(line.get_ydata())
+
+        if y_values:
+            y_min = min(y_values)
+            y_max = max(y_values)
+
+            # небольшой отступ сверху
+            padding = (y_max - y_min) * 0.05 if y_max != y_min else 1
+
+            self.ax.set_ylim(y_min - padding, y_max + padding)
+
+        self.canvas.draw_idle()
+
+    def _on_press(self, event):
+
+        if event.inaxes != self.ax:
+            return
+
+        # ЛКМ — панорамирование
+        if event.button == 1:
+            self._pan_start = (event.xdata, event.ydata)
+            self._pan_xlim = self.ax.get_xlim()
+            self._pan_ylim = self.ax.get_ylim()
+
+        # ПКМ — сброс масштаба
+        if event.button == 3:
+            self._reset_zoom()
+
+    def _on_release(self, event):
+        self._pan_start = None
+        self._pan_xlim = None
+
+    def _on_pan_motion(self, event):
+
+        if self._pan_start is None:
+            return
+
+        if event.inaxes != self.ax:
+            return
+
+        dx = event.xdata - self._pan_start[0]
+        dy = event.ydata - self._pan_start[1]
+
+        x_min, x_max = self._pan_xlim
+        y_min, y_max = self._pan_ylim
+
+        self.ax.set_xlim(x_min - dx, x_max - dx)
+        self.ax.set_ylim(y_min - dy, y_max - dy)
+
+        self.canvas.draw_idle()
+
+    def _on_scroll(self, event):
+
+        if not hasattr(self, "ax"):
+            return
+
+        if event.inaxes != self.ax:
+            return
+
+        base_scale = 1.2
+
+        if event.button == "up":
+            scale_factor = 1 / base_scale
+        elif event.button == "down":
+            scale_factor = base_scale
+        else:
+            return
+
+        x_min, x_max = self.ax.get_xlim()
+        y_min, y_max = self.ax.get_ylim()
+
+        xdata = event.xdata
+        ydata = event.ydata
+
+        if xdata is None or ydata is None:
+            return
+
+        new_width = (x_max - x_min) * scale_factor
+        new_height = (y_max - y_min) * scale_factor
+
+        rel_x = (x_max - xdata) / (x_max - x_min)
+        rel_y = (y_max - ydata) / (y_max - y_min)
+
+        self.ax.set_xlim(
+            xdata - new_width * (1 - rel_x),
+            xdata + new_width * rel_x
+        )
+
+        self.ax.set_ylim(
+            ydata - new_height * (1 - rel_y),
+            ydata + new_height * rel_y
+        )
+
+        self.canvas.draw_idle()
 
     def _on_hover(self, event):
 
@@ -333,6 +451,7 @@ class GraphWidget(QWidget):
             widget.checkbox.stateChanged.connect(self.update_chart)
 
         self._update_select_all_state()
+        self.update_chart()
 
     def _update_select_all_state(self):
 
