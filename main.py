@@ -879,9 +879,15 @@ class MainWindow(QMainWindow):
 
         week_data = self.current_raw_data.get(week_key, {})
 
+        if data.get("is_total"):
+            title_line = "Всего по всем судьям"
+        else:
+            title_line = "Детализация"
+
         lines = [
             f"Неделя: {week_key}",
             f"Показатель: {category}",
+            title_line,
             ""
         ]
 

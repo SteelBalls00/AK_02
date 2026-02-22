@@ -267,48 +267,59 @@ class GraphWidget(QWidget):
                 self.canvas.draw_idle()
             return
 
+        found = False
+
         for line in self.ax.get_lines():
 
-            if line.get_label() == "__total__":
+            contains, info = line.contains(event)
+            if not contains:
                 continue
 
-            contains, info = line.contains(event)
-            if contains:
+            ind = info["ind"][0]
+            x = line.get_xdata()[ind]
+            y = line.get_ydata()[ind]
 
-                ind = info["ind"][0]
-                x = line.get_xdata()[ind]
-                y = line.get_ydata()[ind]
-
-                week_indexes = self._get_filtered_weeks()
-                if not (0 <= ind < len(week_indexes)):
-                    return
-
-                _, week_key = week_indexes[ind]
-                label = line.get_label()
-
-                text = f"{label}\n{week_key}\nЗначение: {int(y)}"
-
-                if self._hover_annotation is None:
-                    self._hover_annotation = self.ax.annotate(
-                        text,
-                        xy=(x, y),
-                        xytext=(15, 15),
-                        textcoords="offset points",
-                        bbox=dict(boxstyle="round", fc="white", ec="black"),
-                        arrowprops=dict(arrowstyle="->")
-                    )
-                else:
-                    self._hover_annotation.xy = (x, y)
-                    self._hover_annotation.set_text(text)
-                    self._hover_annotation.set_visible(True)
-
-                self.canvas.draw_idle()
+            week_indexes = self._get_filtered_weeks()
+            if not (0 <= ind < len(week_indexes)):
                 return
 
-        # если ни одна точка не найдена
-        if self._hover_annotation:
+            _, week_key = week_indexes[ind]
+
+            label = line.get_label()
+
+            # красиво отображаем название линии
+            if label == "__total__":
+                display_name = "Всего"
+            else:
+                display_name = label
+
+            text = (
+                f"{display_name}\n"
+                f"{week_key}\n"
+                f"Значение: {int(y)}"
+            )
+
+            if self._hover_annotation is None:
+                self._hover_annotation = self.ax.annotate(
+                    text,
+                    xy=(x, y),
+                    xytext=(15, 15),
+                    textcoords="offset points",
+                    bbox=dict(boxstyle="round", fc="white", ec="black"),
+                    arrowprops=dict(arrowstyle="->")
+                )
+            else:
+                self._hover_annotation.xy = (x, y)
+                self._hover_annotation.set_text(text)
+                self._hover_annotation.set_visible(True)
+
+            found = True
+            break
+
+        if not found and self._hover_annotation:
             self._hover_annotation.set_visible(False)
-            self.canvas.draw_idle()
+
+        self.canvas.draw_idle()
 
     def _toggle_all_judges(self, state):
         checked = state == Qt.Checked
@@ -612,7 +623,8 @@ class GraphWidget(QWidget):
                     totals,
                     linestyle="--",
                     color="black",
-                    label="__total__"
+                    label="__total__",
+                    picker=6   # ← ВАЖНО
                 )
 
                 # 🔥 если нет выбранных судей — вручную задать Y-лимиты
@@ -724,6 +736,7 @@ class GraphWidget(QWidget):
     def on_pick(self, event):
 
         mouse_event = event.mouseevent
+        line = event.artist
 
         ind = event.ind[0]
         week_indexes = self._get_filtered_weeks()
@@ -732,18 +745,50 @@ class GraphWidget(QWidget):
             return
 
         _, week_key = week_indexes[ind]
-
         category = self.category_combo.currentText()
 
-        # 🔥 Получаем значение по Y
-        line = event.artist
         ydata = line.get_ydata()
         clicked_value = int(ydata[ind])
 
-        # 🔥 Ищем ВСЕХ судей с таким значением
-        matched_judges = []
-
         week_data = self.raw_data.get(week_key, {})
+        label = line.get_label()
+
+        # ==========================
+        # КЛИК ПО "ВСЕГО"
+        # ==========================
+        if label == "__total__":
+
+            judges_with_counts = []
+
+            for judge, judge_data in week_data.items():
+                cases = judge_data.get(category, [])
+                count = len(cases)
+                if count > 0:
+                    judges_with_counts.append((judge, count))
+
+            # 🔥 сортировка по убыванию количества дел
+            judges_with_counts.sort(key=lambda x: x[1], reverse=True)
+
+            # берём только имена судей
+            matched_judges = [j[0] for j in judges_with_counts]
+
+            data = {
+                "week_key": week_key,
+                "category": category,
+                "judges": matched_judges,
+                "value": clicked_value,
+                "double_click": mouse_event.dblclick,
+                "is_total": True
+            }
+
+            self.point_clicked.emit(data)
+            return
+
+        # ==========================
+        # КЛИК ПО ЛИНИИ СУДЬИ
+        # ==========================
+        # 🔥 Ищем ВСЕХ судей с таким же значением
+        matched_judges = []
 
         for judge, judge_data in week_data.items():
             cases = judge_data.get(category, [])
@@ -755,7 +800,8 @@ class GraphWidget(QWidget):
             "category": category,
             "judges": matched_judges,
             "value": clicked_value,
-            "double_click": mouse_event.dblclick
+            "double_click": mouse_event.dblclick,
+            "is_total": False
         }
 
         self.point_clicked.emit(data)
