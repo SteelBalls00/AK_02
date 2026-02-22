@@ -313,6 +313,7 @@ class MainWindow(QMainWindow):
         self.splitter.addWidget(self.details_view)
         self.splitter.setStretchFactor(0, 8)  # таблица
         self.splitter.setStretchFactor(1, 6)  # детализация
+        self.splitter.setSizes([700, 300])
 
         main_layout.addWidget(header_widget)
         main_layout.addWidget(separator)
@@ -682,22 +683,68 @@ class MainWindow(QMainWindow):
             row = index.row()
             col = index.column()
 
-            # имя судьи — всегда первый столбец
-            judge = self.model.data(self.model.index(row, 0))
-
+            judge_name = self.model.data(self.model.index(row, 0))
             column_name = self.model.headerData(col, Qt.Horizontal)
 
-            details = self.current_processor.get_cell_details(
-                judge=judge,
-                column=column_name,
-                week_index=self.week_index,
-            )
+            # ---- ЕСЛИ строка "Всего"
+            if judge_name == "Всего" and col != 0:
 
-            blocks.append(self._format_details_block(
-                judge, column_name, details
-            ))
+                week_key = list(self.current_raw_data.keys())[self.week_index]
+                week_data = self.current_raw_data.get(week_key, {})
 
-        self.details_view.setPlainText("\n\n".join(blocks))
+                lines = [
+                    f"Неделя: {week_key}",
+                    f"Показатель: {column_name}",
+                    "Всего по всем судьям",
+                    ""
+                ]
+
+                has_data = False
+
+                # перебираем всех судей
+                for judge in sorted(week_data.keys()):
+                    details = self.current_processor.get_cell_details(
+                        judge=judge,
+                        column=column_name,
+                        week_index=self.week_index,
+                    )
+
+                    # считаем общее количество дел
+                    total_cases = sum(len(values) for _, values in details)
+
+                    if total_cases == 0:
+                        continue  # 🔥 пропускаем нулевые
+
+                    has_data = True
+
+                    lines.append(f"{judge} — дел: {total_cases}")
+
+                    for title, values in details:
+                        for v in values:
+                            lines.append(f"  • {v}")
+
+                    lines.append("-" * 40)
+                    lines.append("")
+
+                if not has_data:
+                    self.details_view.setPlainText("Детализация отсутствует.")
+                else:
+                    self.details_view.setPlainText("\n".join(lines))
+
+            else:
+                # обычная логика для судьи
+                details = self.current_processor.get_cell_details(
+                    judge=judge_name,
+                    column=column_name,
+                    week_index=self.week_index,
+                )
+
+                blocks.append(self._format_details_block(
+                    judge_name, column_name, details
+                ))
+
+        if blocks:
+            self.details_view.setPlainText("\n\n".join(blocks))
 
     def _load_courts(self):
         courts = self.bases_repo.get_courts_with_any_pkls()
