@@ -67,6 +67,7 @@ class GraphWidget(QWidget):
         self.judge_colors = {}
         self.category_colors = {}
         self._user_range_selected = False
+        self._hover_annotation = None
 
         self._init_ui()
 
@@ -130,11 +131,66 @@ class GraphWidget(QWidget):
         # ===== RIGHT PANEL =====
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
+        self.canvas.mpl_connect("motion_notify_event", self._on_hover)
 
         layout.addLayout(left_panel, 1)
         layout.addWidget(self.canvas, 5)
 
         self.canvas.mpl_connect("pick_event", self.on_pick)
+
+    def _on_hover(self, event):
+
+        if not hasattr(self, "ax"):
+            return
+
+        if event.inaxes != self.ax:
+            if self._hover_annotation:
+                self._hover_annotation.set_visible(False)
+                self.canvas.draw_idle()
+            return
+
+        for line in self.ax.get_lines():
+
+            if line.get_label() == "__total__":
+                continue
+
+            contains, info = line.contains(event)
+            if contains:
+
+                ind = info["ind"][0]
+                x = line.get_xdata()[ind]
+                y = line.get_ydata()[ind]
+
+                week_indexes = self._get_filtered_weeks()
+                if not (0 <= ind < len(week_indexes)):
+                    return
+
+                _, week_key = week_indexes[ind]
+                label = line.get_label()
+
+                text = f"{label}\n{week_key}\nЗначение: {int(y)}"
+
+                if self._hover_annotation is None:
+                    self._hover_annotation = self.ax.annotate(
+                        text,
+                        xy=(x, y),
+                        xytext=(15, 15),
+                        textcoords="offset points",
+                        bbox=dict(boxstyle="round", fc="white", ec="black"),
+                        arrowprops=dict(arrowstyle="->")
+                    )
+                else:
+                    self._hover_annotation.xy = (x, y)
+                    self._hover_annotation.set_text(text)
+                    self._hover_annotation.set_visible(True)
+
+                self.canvas.draw_idle()
+                return
+
+        # если ни одна точка не найдена
+        if self._hover_annotation:
+            self._hover_annotation.set_visible(False)
+            self.canvas.draw_idle()
 
     def _toggle_all_judges(self, state):
         checked = state == Qt.Checked
@@ -369,14 +425,22 @@ class GraphWidget(QWidget):
     # ---------------- CHART ----------------
 
     def update_chart(self):
+
         if not self.raw_data:
             return
 
+        # очищаем фигуру
         self.figure.clear()
-        ax = self.figure.add_subplot(111)
+
+        # создаём новый axes и сохраняем его
+        self.ax = self.figure.add_subplot(111)
+
+        # 🔥 ВАЖНО: сбрасываем hover-аннотацию
+        self._hover_annotation = None
 
         week_indexes = self._get_filtered_weeks()
         if not week_indexes:
+            self.canvas.draw()
             return
 
         # =========================
@@ -397,16 +461,17 @@ class GraphWidget(QWidget):
             # ---- выбранные судьи (для отображения)
             selected_judges = self._get_selected_judges()
 
-            # серии
+            # строим серии
             full_series = self._build_series(category, all_judges, week_indexes)
             display_series = self._build_series(category, selected_judges, week_indexes)
 
-            # ---- Рисуем судей
+            # ---- линии судей
             for judge, values in display_series.items():
-                if not any(values):  # пропускаем полностью нулевых
+
+                if not any(values):
                     continue
 
-                ax.plot(
+                self.ax.plot(
                     range(len(values)),
                     values,
                     marker="o",
@@ -415,25 +480,25 @@ class GraphWidget(QWidget):
                     picker=6
                 )
 
-            # ---- Рисуем линию "Всего"
+            # ---- линия "Всего" (НЕ зависит от галочек)
             if self.total_checkbox.isChecked() and full_series:
                 totals = [
                     sum(full_series[j][i] for j in full_series)
                     for i in range(len(week_indexes))
                 ]
 
-                ax.plot(
+                self.ax.plot(
                     range(len(totals)),
                     totals,
                     linestyle="--",
                     color="black",
-                    label="__total__"  # спец. label для игнорирования
+                    label="__total__"
                 )
 
-            ax.set_title(category)
+            self.ax.set_title(category)
 
         # =========================
-        # РЕЖИМ СРАВНЕНИЯ КАТЕГОРИЙ
+        # СРАВНЕНИЕ КАТЕГОРИЙ
         # =========================
         else:
 
@@ -468,7 +533,7 @@ class GraphWidget(QWidget):
                 if not any(values):
                     continue
 
-                ax.plot(
+                self.ax.plot(
                     range(len(values)),
                     values,
                     marker="o",
@@ -477,19 +542,19 @@ class GraphWidget(QWidget):
                     picker=6
                 )
 
-            ax.set_title("Сравнение категорий")
+            self.ax.set_title("Сравнение категорий")
 
         # =========================
-        # ОБЩЕЕ
+        # ОБЩИЕ НАСТРОЙКИ
         # =========================
 
-        ax.set_xticks(range(len(week_indexes)))
-        ax.set_xticklabels(
+        self.ax.set_xticks(range(len(week_indexes)))
+        self.ax.set_xticklabels(
             [w[-10:] for _, w in week_indexes],
             rotation=90
         )
 
-        ax.grid(True)
+        self.ax.grid(True)
         self.figure.tight_layout()
         self.canvas.draw()
 
