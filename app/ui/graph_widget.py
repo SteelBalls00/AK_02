@@ -12,6 +12,14 @@ import matplotlib.cm as cm
 from datetime import datetime
 
 
+class ClickableLabel(QLabel):
+    clicked = pyqtSignal()
+
+    def mousePressEvent(self, event):
+        self.clicked.emit()
+        super().mousePressEvent(event)
+
+
 class ColorCheckItem(QWidget):
 
     def __init__(self, text, color):
@@ -29,7 +37,8 @@ class ColorCheckItem(QWidget):
             "border: 1px solid black;"
         )
 
-        self.text_label = QLabel(text)
+        self.text_label = ClickableLabel(text)
+        self.text_label.clicked.connect(self._toggle_checkbox)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(2, 2, 2, 2)
@@ -39,6 +48,9 @@ class ColorCheckItem(QWidget):
         layout.addWidget(self.color_label)
         layout.addWidget(self.text_label)
         layout.addStretch()
+
+    def _toggle_checkbox(self):
+        self.checkbox.setChecked(not self.checkbox.isChecked())
 
 
 class GraphWidget(QWidget):
@@ -80,12 +92,17 @@ class GraphWidget(QWidget):
 
         self.judges_list = QListWidget()
         self.judges_list.itemChanged.connect(self.update_chart)
-        left_panel.addWidget(self.judges_list)
+        left_panel.addWidget(self.judges_list, 1)
 
         self.total_checkbox = QCheckBox("Показывать линию 'Всего'")
         self.total_checkbox.setChecked(True)
         self.total_checkbox.stateChanged.connect(self.update_chart)
         left_panel.addWidget(self.total_checkbox)
+
+        self.select_all_checkbox = QCheckBox("Отметить / снять все")
+        self.select_all_checkbox.stateChanged.connect(self._toggle_all_judges)
+
+        left_panel.addWidget(self.select_all_checkbox)
 
         # Диапазон дат
         left_panel.addWidget(QLabel("Период:"))
@@ -102,15 +119,11 @@ class GraphWidget(QWidget):
         left_panel.addWidget(self.date_from)
         left_panel.addWidget(self.date_to)
 
-
-
         self.categories_list = QListWidget()
         self.categories_list.itemChanged.connect(self.update_chart)
         self.categories_list.hide()
 
-        left_panel.addWidget(self.categories_list)
-
-
+        left_panel.addWidget(self.categories_list, 1)
 
         left_panel.addStretch()
 
@@ -118,12 +131,29 @@ class GraphWidget(QWidget):
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
 
-        layout.addLayout(left_panel, 2)
+        layout.addLayout(left_panel, 1)
         layout.addWidget(self.canvas, 5)
 
         self.canvas.mpl_connect("pick_event", self.on_pick)
 
-    # ---------------- PUBLIC API ----------------
+    def _toggle_all_judges(self, state):
+        checked = state == Qt.Checked
+
+        # Если режим сравнения — работаем с категориями
+        if self.compare_mode.isChecked():
+            target_list = self.categories_list
+        else:
+            target_list = self.judges_list
+
+        for i in range(target_list.count()):
+            item = target_list.item(i)
+            widget = target_list.itemWidget(item)
+
+            widget.checkbox.blockSignals(True)
+            widget.checkbox.setChecked(checked)
+            widget.checkbox.blockSignals(False)
+
+        self.update_chart()
 
     def _on_date_changed(self):
         self._user_range_selected = True
@@ -214,6 +244,8 @@ class GraphWidget(QWidget):
 
             widget.checkbox.stateChanged.connect(self.update_chart)
 
+        self._update_select_all_state()
+
     def _fill_judges(self):
         self.judges_list.clear()
 
@@ -243,6 +275,35 @@ class GraphWidget(QWidget):
             self.judges_list.setItemWidget(item, widget)
 
             widget.checkbox.stateChanged.connect(self.update_chart)
+
+        self._update_select_all_state()
+
+    def _update_select_all_state(self):
+
+        if self.compare_mode.isChecked():
+            target_list = self.categories_list
+        else:
+            target_list = self.judges_list
+
+        total = target_list.count()
+        checked = 0
+
+        for i in range(total):
+            item = target_list.item(i)
+            widget = target_list.itemWidget(item)
+            if widget.checkbox.isChecked():
+                checked += 1
+
+        if total == 0:
+            self.select_all_checkbox.setCheckState(Qt.Unchecked)
+            return
+
+        if checked == total:
+            self.select_all_checkbox.setCheckState(Qt.Checked)
+        elif checked == 0:
+            self.select_all_checkbox.setCheckState(Qt.Unchecked)
+        else:
+            self.select_all_checkbox.setCheckState(Qt.PartiallyChecked)
 
     # ---------------- FILTER ----------------
 
@@ -316,29 +377,35 @@ class GraphWidget(QWidget):
 
         week_indexes = self._get_filtered_weeks()
         if not week_indexes:
-            # self.canvas.draw()
             return
 
-        judges = self._get_selected_judges()
-
-        # ================== ОБЫЧНЫЙ РЕЖИМ ==================
+        # =========================
+        # ОБЫЧНЫЙ РЕЖИМ (СУДЬИ)
+        # =========================
         if not self.compare_mode.isChecked():
 
-            if not judges:
-                self.canvas.draw()
-                return
-
             category = self.category_combo.currentText()
-            series = self._build_series(category, judges, week_indexes)
 
-            # 🔥 фильтрация судей с нулевыми значениями
-            filtered_series = {
-                judge: values
-                for judge, values in series.items()
-                if any(v > 0 for v in values)
-            }
+            # ---- ВСЕ судьи (для totals)
+            all_judges = set()
+            for _, week_key in week_indexes:
+                week_data = self.raw_data.get(week_key, {})
+                all_judges.update(week_data.keys())
 
-            for judge, values in filtered_series.items():
+            all_judges = sorted(all_judges)
+
+            # ---- выбранные судьи (для отображения)
+            selected_judges = self._get_selected_judges()
+
+            # серии
+            full_series = self._build_series(category, all_judges, week_indexes)
+            display_series = self._build_series(category, selected_judges, week_indexes)
+
+            # ---- Рисуем судей
+            for judge, values in display_series.items():
+                if not any(values):  # пропускаем полностью нулевых
+                    continue
+
                 ax.plot(
                     range(len(values)),
                     values,
@@ -348,24 +415,26 @@ class GraphWidget(QWidget):
                     picker=6
                 )
 
-            # линия "Всего"
-            if self.total_checkbox.isChecked():
+            # ---- Рисуем линию "Всего"
+            if self.total_checkbox.isChecked() and full_series:
                 totals = [
-                    sum(filtered_series[j][i] for j in filtered_series)
-                    for i in range(len(next(iter(series.values()))))
+                    sum(full_series[j][i] for j in full_series)
+                    for i in range(len(week_indexes))
                 ]
+
                 ax.plot(
                     range(len(totals)),
                     totals,
                     linestyle="--",
                     color="black",
-                    label="__total__",  # специальная метка
-                    picker=6
+                    label="__total__"  # спец. label для игнорирования
                 )
 
             ax.set_title(category)
 
-        # ================== СРАВНЕНИЕ КАТЕГОРИЙ ==================
+        # =========================
+        # РЕЖИМ СРАВНЕНИЯ КАТЕГОРИЙ
+        # =========================
         else:
 
             selected_categories = [
@@ -383,17 +452,21 @@ class GraphWidget(QWidget):
                 return
 
             for category in selected_categories:
+
                 values = []
 
-                for _, week in week_indexes:
+                for _, week_key in week_indexes:
                     total = 0
-                    week_data = self.raw_data[week]
+                    week_data = self.raw_data.get(week_key, {})
 
-                    for judge in judges:
-                        cases = week_data.get(judge, {}).get(category, [])
+                    for judge_data in week_data.values():
+                        cases = judge_data.get(category, [])
                         total += len(cases)
 
                     values.append(total)
+
+                if not any(values):
+                    continue
 
                 ax.plot(
                     range(len(values)),
@@ -406,7 +479,10 @@ class GraphWidget(QWidget):
 
             ax.set_title("Сравнение категорий")
 
-        # ===== X ось =====
+        # =========================
+        # ОБЩЕЕ
+        # =========================
+
         ax.set_xticks(range(len(week_indexes)))
         ax.set_xticklabels(
             [w[-10:] for _, w in week_indexes],
@@ -414,7 +490,6 @@ class GraphWidget(QWidget):
         )
 
         ax.grid(True)
-
         self.figure.tight_layout()
         self.canvas.draw()
 
@@ -503,14 +578,6 @@ class GraphWidget(QWidget):
 
         # ---------- Категории ----------
         categories = list(self.processor.categories)
-        cmap2 = cm.get_cmap("Set2")
-
-        for idx, cat in enumerate(categories):
-            self.category_colors[cat] = cmap2(idx % 8)
-
-        # ---------- Категории ----------
-        categories = list(self.processor.categories)
-
         cmap2 = cm.get_cmap("Set2")
 
         for idx, cat in enumerate(categories):
