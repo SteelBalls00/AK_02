@@ -637,9 +637,10 @@ class MainWindow(QMainWindow):
 
 
     def _format_details_block(self, judge, column, details):
-        _PREFIX_RE = re.compile(r"\d\.\d{3}-")
+
 
         def normalize_case_line(raw: str) -> str:
+            _PREFIX_RE = re.compile(r"\d\.\d{3}-")
             """
             Удаляет ТОЛЬКО префикс вида '2.123-' (цифра + точка + 3 цифры + дефис).
             Если такого шаблона нет — строка возвращается без изменений.
@@ -669,6 +670,14 @@ class MainWindow(QMainWindow):
         return "\n".join(lines)
 
     def on_table_selection_changed(self, selected, deselected):
+        def normalize_case_line(raw: str) -> str:
+            _PREFIX_RE = re.compile(r"\d\.\d{3}-")
+            """
+            Удаляет ТОЛЬКО префикс вида '2.123-' (цифра + точка + 3 цифры + дефис).
+            Если такого шаблона нет — строка возвращается без изменений.
+            """
+            return _PREFIX_RE.sub("", raw, count=1)
+
         if not self.current_context:
             return
 
@@ -699,37 +708,42 @@ class MainWindow(QMainWindow):
                     ""
                 ]
 
-                has_data = False
+                judges_data = []
 
-                # перебираем всех судей
-                for judge in sorted(week_data.keys()):
+                # --- собираем данные по всем судьям
+                for judge in week_data.keys():
+
                     details = self.current_processor.get_cell_details(
                         judge=judge,
                         column=column_name,
                         week_index=self.week_index,
                     )
 
-                    # считаем общее количество дел
                     total_cases = sum(len(values) for _, values in details)
 
-                    if total_cases == 0:
-                        continue  # 🔥 пропускаем нулевые
+                    if total_cases > 0:
+                        judges_data.append((judge, total_cases, details))
 
-                    has_data = True
+                # 🔥 сортировка по убыванию количества дел
+                judges_data.sort(key=lambda x: x[1], reverse=True)
 
-                    lines.append(f"{judge} — дел: {total_cases}")
+                if not judges_data:
+                    self.details_view.setPlainText("Детализация отсутствует.")
+                    return
+
+                # --- вывод
+                for judge, total_cases, details in judges_data:
+
+                    lines.append(f"Судья: {judge} — дел: {total_cases}")
 
                     for title, values in details:
                         for v in values:
-                            lines.append(f"  • {v}")
+                            lines.append(f"  • {normalize_case_line(v)}")
 
                     lines.append("-" * 40)
                     lines.append("")
 
-                if not has_data:
-                    self.details_view.setPlainText("Детализация отсутствует.")
-                else:
-                    self.details_view.setPlainText("\n".join(lines))
+                self.details_view.setPlainText("\n".join(lines))
 
             else:
                 # обычная логика для судьи
