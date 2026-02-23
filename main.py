@@ -21,7 +21,7 @@ import re
 from docx import Document
 from datetime import datetime, date
 from openpyxl import Workbook
-
+import traceback
 
 from PyQt5.QtWidgets import QFrame, QToolButton, QStackedWidget
 from PyQt5.QtCore import Qt, QDate, QEasingCurve
@@ -35,7 +35,6 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QIcon, QFont
 from PyQt5.QtCore import QSize, QPropertyAnimation
 from PyQt5.QtWidgets import QGraphicsOpacityEffect
-
 
 from app.constants.pkl_mapping import PKL_MAPPING
 from app.repository.bases_repository import BasesRepository
@@ -1307,6 +1306,9 @@ QSplitter::handle {
 """
 
 
+def excepthook(type, value, tb):
+    print("UNCAUGHT EXCEPTION:")
+    traceback.print_exception(type, value, tb)
 
 def main():
     app = QApplication(sys.argv)
@@ -1320,4 +1322,5 @@ def main():
 
 
 if __name__ == "__main__":
+    sys.excepthook = excepthook
     main()

@@ -85,28 +85,15 @@ class GraphWidget(QWidget):
         self.category_combo = QComboBox()
         self.category_combo.currentIndexChanged.connect(self.update_chart)
 
-        left_panel.addWidget(QLabel("Показатель:"))
         left_panel.addWidget(self.category_combo)
 
         self.compare_mode = QCheckBox("Сравнение категорий")
         self.compare_mode.stateChanged.connect(self._toggle_compare_mode)
         left_panel.addWidget(self.compare_mode)
 
-        left_panel.addWidget(QLabel("Судьи:"))
-
         self.judges_list = QListWidget()
         self.judges_list.itemChanged.connect(self.update_chart)
         left_panel.addWidget(self.judges_list, 1)
-
-        self.total_checkbox = QCheckBox("Показывать линию 'Всего'")
-        self.total_checkbox.setChecked(True)
-        self.total_checkbox.stateChanged.connect(self.update_chart)
-        left_panel.addWidget(self.total_checkbox)
-
-        self.select_all_checkbox = QCheckBox("Отметить / снять все")
-        self.select_all_checkbox.stateChanged.connect(self._toggle_all_judges)
-
-        left_panel.addWidget(self.select_all_checkbox)
 
         # Диапазон дат
         left_panel.addWidget(QLabel("Период:"))
@@ -144,6 +131,55 @@ class GraphWidget(QWidget):
         layout.addWidget(self.canvas, 5)
 
         self.canvas.mpl_connect("pick_event", self.on_pick)
+
+    def _toggle_all_generic(self, state, target_list):
+
+        checked = state == Qt.Checked
+
+        for i in range(target_list.count()):
+            item = target_list.item(i)
+            widget = target_list.itemWidget(item)
+
+            text = widget.text_label.text()
+
+            if text.startswith("Показывать") or text.startswith("Отметить"):
+                continue
+
+            widget.checkbox.blockSignals(True)
+            widget.checkbox.setChecked(checked)
+            widget.checkbox.blockSignals(False)
+
+        self.update_chart()
+
+    def _add_bottom_controls(self, target_list, mode="judges"):
+
+        # --- Линия "Всего" только для судей
+        if mode == "judges":
+            total_item = QListWidgetItem()
+            total_widget = ColorCheckItem("Показывать линию 'Всего'", (0, 0, 0))
+
+            total_widget.color_label.hide()
+            total_widget.checkbox.setChecked(True)
+            total_widget.checkbox.stateChanged.connect(self.update_chart)
+
+            total_item.setSizeHint(total_widget.sizeHint())
+            target_list.addItem(total_item)
+            target_list.setItemWidget(total_item, total_widget)
+
+            self._total_item_widget = total_widget
+
+        # --- Отметить / снять все (и для судей и для категорий)
+        select_item = QListWidgetItem()
+        select_widget = ColorCheckItem("Отметить / снять все", (0, 0, 0))
+
+        select_widget.color_label.hide()
+        select_widget.checkbox.stateChanged.connect(
+            lambda state: self._toggle_all_generic(state, target_list)
+        )
+
+        select_item.setSizeHint(select_widget.sizeHint())
+        target_list.addItem(select_item)
+        target_list.setItemWidget(select_item, select_widget)
 
     def _reset_zoom(self):
 
@@ -322,17 +358,18 @@ class GraphWidget(QWidget):
         self.canvas.draw_idle()
 
     def _toggle_all_judges(self, state):
+
         checked = state == Qt.Checked
 
-        # Если режим сравнения — работаем с категориями
-        if self.compare_mode.isChecked():
-            target_list = self.categories_list
-        else:
-            target_list = self.judges_list
+        for i in range(self.judges_list.count()):
+            item = self.judges_list.item(i)
+            widget = self.judges_list.itemWidget(item)
 
-        for i in range(target_list.count()):
-            item = target_list.item(i)
-            widget = target_list.itemWidget(item)
+            text = widget.text_label.text()
+
+            # игнорируем служебные элементы
+            if text.startswith("Показывать") or text.startswith("Отметить"):
+                continue
 
             widget.checkbox.blockSignals(True)
             widget.checkbox.setChecked(checked)
@@ -442,6 +479,8 @@ class GraphWidget(QWidget):
             widget.checkbox.stateChanged.connect(self.update_chart)
 
         self._update_select_all_state()
+        self._add_bottom_controls(self.categories_list, mode="categories")
+        self.update_chart()
 
     def _fill_judges(self):
 
@@ -487,37 +526,56 @@ class GraphWidget(QWidget):
                 widget.checkbox.setChecked(True)
 
             widget.checkbox.stateChanged.connect(self.update_chart)
-            # widget.checkbox.stateChanged.connect(self._update_select_all_state)
 
-        # self._update_select_all_state()
+        self._add_bottom_controls(self.judges_list, mode="judges")
         self.update_chart()
 
     def _update_select_all_state(self):
 
+        # определяем активный список
         if self.compare_mode.isChecked():
             target_list = self.categories_list
         else:
             target_list = self.judges_list
 
-        total = target_list.count()
+        total = 0
         checked = 0
+        select_all_widget = None
 
-        for i in range(total):
+        for i in range(target_list.count()):
             item = target_list.item(i)
             widget = target_list.itemWidget(item)
+
+            text = widget.text_label.text()
+
+            # находим служебную галку
+            if text.startswith("Отметить"):
+                select_all_widget = widget
+                continue
+
+            # пропускаем "Показывать Всего"
+            if text.startswith("Показывать"):
+                continue
+
+            total += 1
             if widget.checkbox.isChecked():
                 checked += 1
 
-        if total == 0:
-            self.select_all_checkbox.setCheckState(Qt.Unchecked)
+        if not select_all_widget:
             return
 
-        if checked == total:
-            self.select_all_checkbox.setCheckState(Qt.Checked)
+        select_all_widget.checkbox.blockSignals(True)
+
+        if total == 0:
+            select_all_widget.checkbox.setCheckState(Qt.Unchecked)
+        elif checked == total:
+            select_all_widget.checkbox.setCheckState(Qt.Checked)
         elif checked == 0:
-            self.select_all_checkbox.setCheckState(Qt.Unchecked)
+            select_all_widget.checkbox.setCheckState(Qt.Unchecked)
         else:
-            self.select_all_checkbox.setCheckState(Qt.PartiallyChecked)
+            select_all_widget.checkbox.setCheckState(Qt.PartiallyChecked)
+
+        select_all_widget.checkbox.blockSignals(False)
 
     # ---------------- FILTER ----------------
 
@@ -639,7 +697,12 @@ class GraphWidget(QWidget):
                 )
 
             # ---- линия "Всего" (НЕ зависит от галочек)
-            if self.total_checkbox.isChecked() and full_series:
+            if (
+                    not self.compare_mode.isChecked()
+                    and hasattr(self, "_total_item_widget")
+                    and self._total_item_widget.checkbox.isChecked()
+                    and full_series
+            ):
 
                 totals = [
                     sum(full_series[j][i] for j in full_series)
@@ -855,12 +918,10 @@ class GraphWidget(QWidget):
         if self.compare_mode.isChecked():
             self.category_combo.hide()
             self.judges_list.hide()
-            self.total_checkbox.hide()
             self.categories_list.show()
         else:
             self.category_combo.show()
             self.judges_list.show()
-            self.total_checkbox.show()
             self.categories_list.hide()
 
         self.update_chart()
