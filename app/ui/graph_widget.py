@@ -82,22 +82,19 @@ class GraphWidget(QWidget):
         # ===== LEFT PANEL =====
         left_panel = QVBoxLayout()
 
-        self.category_combo = QComboBox()
-        self.category_combo.currentIndexChanged.connect(self.update_chart)
-
-        left_panel.addWidget(self.category_combo)
-
         self.compare_mode = QCheckBox("Сравнение категорий")
         self.compare_mode.stateChanged.connect(self._toggle_compare_mode)
         left_panel.addWidget(self.compare_mode)
+
+        self.category_combo = QComboBox()
+        self.category_combo.currentIndexChanged.connect(self.update_chart)
+        left_panel.addWidget(self.category_combo)
 
         self.judges_list = QListWidget()
         self.judges_list.itemChanged.connect(self.update_chart)
         left_panel.addWidget(self.judges_list, 1)
 
         # Диапазон дат
-        left_panel.addWidget(QLabel("Период:"))
-
         self.date_from = QDateEdit()
         self.date_to = QDateEdit()
 
@@ -602,9 +599,6 @@ class GraphWidget(QWidget):
 
             if start_date <= date_to and end_date >= date_from:
                 result.append((i, self.weeks[i]))
-
-        # print("_get_filtered_weeks - FROM:", date_from, "TO:", date_to)
-        # print("_get_filtered_weeks - result:", result)
 
         return result
 

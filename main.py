@@ -106,12 +106,16 @@ class MainWindow(QMainWindow):
         for btn in (self.prev_week_btn, self.next_week_btn):
             btn.setFixedSize(68, 48)
 
-        week_box = QHBoxLayout()
+        self.week_nav_widget = QWidget()
+
+        week_box = QHBoxLayout(self.week_nav_widget)
+        week_box.setContentsMargins(0, 0, 0, 0)
+
         week_box.addWidget(self.prev_week_btn)
         week_box.addWidget(self.week_label)
         week_box.addWidget(self.next_week_btn)
 
-        top_layout.addLayout(week_box)
+        top_layout.addWidget(self.week_nav_widget)
 
         # --- Суд ---
         court_group = QGroupBox("Суд")
@@ -305,6 +309,24 @@ class MainWindow(QMainWindow):
         self.graph_widget = GraphWidget()
         self.graph_widget.point_clicked.connect(self.on_graph_point_clicked)
 
+        # ===== begin Управление датами графика =====
+        self.chart_date_widget = QWidget()
+        chart_date_layout = QHBoxLayout(self.chart_date_widget)
+        chart_date_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.chart_date_from = self.graph_widget.date_from
+        self.chart_date_to = self.graph_widget.date_to
+
+        chart_date_layout.addWidget(QLabel("С:"))
+        chart_date_layout.addWidget(self.chart_date_from)
+        chart_date_layout.addWidget(QLabel("По:"))
+        chart_date_layout.addWidget(self.chart_date_to)
+
+        self.chart_date_widget.hide()  # изначально скрыто
+
+        top_layout.insertWidget(0, self.chart_date_widget)
+        # ===== end Управление датами графика =====
+
         self.stacked_widget.addWidget(self.graph_widget)
 
         # график добавим позже
@@ -327,10 +349,16 @@ class MainWindow(QMainWindow):
         self.view_chart_btn.setChecked(False)
         self.stacked_widget.setCurrentIndex(0)
 
+        self.week_nav_widget.show()
+        self.chart_date_widget.hide()
+
     def switch_to_chart(self):
         self.view_chart_btn.setChecked(True)
         self.view_table_btn.setChecked(False)
         self.stacked_widget.setCurrentIndex(1)
+
+        self.week_nav_widget.hide()
+        self.chart_date_widget.show()
 
     def set_radio_visible(self, btn, visible: bool):
         if not visible and btn.isChecked():
