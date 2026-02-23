@@ -354,7 +354,6 @@ class GraphWidget(QWidget):
             key=lambda w: datetime.strptime(w.split(" - ")[0], "%d.%m.%Y")
         )
 
-        # берём только последние 20
         self.weeks = all_weeks
 
         self._parse_week_dates()
@@ -412,6 +411,13 @@ class GraphWidget(QWidget):
         # print("_parse_week_dates - FILTERED:", len(self._get_filtered_weeks()))
 
     def _fill_categories(self):
+        # 🔥 сохраняем текущее состояние
+        previous_state = {}
+        for i in range(self.categories_list.count()):
+            item = self.categories_list.item(i)
+            widget = self.categories_list.itemWidget(item)
+            previous_state[widget.text_label.text()] = widget.checkbox.isChecked()
+
         self.category_combo.clear()
         self.category_combo.addItems(self.processor.categories)
 
@@ -427,11 +433,26 @@ class GraphWidget(QWidget):
             self.categories_list.addItem(item)
             self.categories_list.setItemWidget(item, widget)
 
+            # 🔥 восстановление состояния
+            if category in previous_state:
+                widget.checkbox.setChecked(previous_state[category])
+            else:
+                widget.checkbox.setChecked(True)
+
             widget.checkbox.stateChanged.connect(self.update_chart)
 
         self._update_select_all_state()
 
     def _fill_judges(self):
+
+        # 🔥 сохраняем текущее состояние
+        previous_state = {}
+
+        for i in range(self.judges_list.count()):
+            item = self.judges_list.item(i)
+            widget = self.judges_list.itemWidget(item)
+            previous_state[widget.text_label.text()] = widget.checkbox.isChecked()
+
         self.judges_list.clear()
 
         category = self.category_combo.currentText()
@@ -459,9 +480,16 @@ class GraphWidget(QWidget):
             self.judges_list.addItem(item)
             self.judges_list.setItemWidget(item, widget)
 
-            widget.checkbox.stateChanged.connect(self.update_chart)
+            # 🔥 восстановление состояния
+            if judge in previous_state:
+                widget.checkbox.setChecked(previous_state[judge])
+            else:
+                widget.checkbox.setChecked(True)
 
-        self._update_select_all_state()
+            widget.checkbox.stateChanged.connect(self.update_chart)
+            # widget.checkbox.stateChanged.connect(self._update_select_all_state)
+
+        # self._update_select_all_state()
         self.update_chart()
 
     def _update_select_all_state(self):

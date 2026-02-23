@@ -965,7 +965,7 @@ class MainWindow(QMainWindow):
 
             count = len(cases)
 
-            lines.append(f"{judge} — дел: {count}")
+            lines.append(f"Судья: {judge} — дел: {count}")
             for case in cases:
                 lines.append(f"  • {normalize_case_line(case)}")
             lines.append("-" * 40)
