@@ -6,7 +6,7 @@
 - закрепить первый столбец с судьями,в случае ширины таблицы за пределы экрана
 - в детализации отделить визуально рассмотренные в году
 - скрины графиков
-- масшабирование колесиком мыши
+- детализация пр сравнении категорий
 
 поправить:
 - бокс с выбором суда иногда появляется пустой при наличии 1 суда
@@ -23,7 +23,7 @@ from datetime import datetime, date
 from openpyxl import Workbook
 import traceback
 
-from PyQt5.QtWidgets import QFrame, QToolButton, QStackedWidget
+from PyQt5.QtWidgets import QFrame, QToolButton, QStackedWidget, QSizePolicy
 from PyQt5.QtCore import Qt, QDate, QEasingCurve
 from PyQt5.QtWidgets import (
     QApplication, QMenu, QMainWindow, QWidget,
@@ -86,7 +86,8 @@ class MainWindow(QMainWindow):
         header_widget = QWidget()
         header_widget.setObjectName("panel")
         top_layout = QHBoxLayout(header_widget)
-        top_layout.setContentsMargins(8, 8, 8, 8)
+        top_layout.setContentsMargins(8, 4, 8, 4)
+        top_layout.setSpacing(6)
 
         # --- Переключение недель ---
         self.prev_week_btn = QPushButton("◀")
@@ -106,16 +107,24 @@ class MainWindow(QMainWindow):
         for btn in (self.prev_week_btn, self.next_week_btn):
             btn.setFixedSize(68, 48)
 
+        self.header_stack = QStackedWidget()
+        self.header_stack.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed
+        )
+        self.header_stack.setFixedHeight(80)
+        top_layout.addWidget(self.header_stack)
+
         self.week_nav_widget = QWidget()
+        week_layout = QHBoxLayout(self.week_nav_widget)
+        week_layout.setContentsMargins(0, 0, 0, 0)
 
-        week_box = QHBoxLayout(self.week_nav_widget)
-        week_box.setContentsMargins(0, 0, 0, 0)
+        week_layout.addWidget(self.prev_week_btn)
+        week_layout.addWidget(self.week_label)
+        week_layout.addWidget(self.next_week_btn)
+        week_layout.addStretch()
 
-        week_box.addWidget(self.prev_week_btn)
-        week_box.addWidget(self.week_label)
-        week_box.addWidget(self.next_week_btn)
-
-        top_layout.addWidget(self.week_nav_widget)
+        self.header_stack.addWidget(self.week_nav_widget)
 
         # --- Суд ---
         court_group = QGroupBox("Суд")
@@ -310,21 +319,32 @@ class MainWindow(QMainWindow):
         self.graph_widget.point_clicked.connect(self.on_graph_point_clicked)
 
         # ===== begin Управление датами графика =====
-        self.chart_date_widget = QWidget()
-        chart_date_layout = QHBoxLayout(self.chart_date_widget)
-        chart_date_layout.setContentsMargins(0, 0, 0, 0)
+        self.date_group = QGroupBox("Диапазон дат для графика")
+        date_layout = QHBoxLayout(self.date_group)
+        date_layout.setContentsMargins(8, 4, 8, 4)
+        date_layout.setSpacing(6)
+
 
         self.chart_date_from = self.graph_widget.date_from
         self.chart_date_to = self.graph_widget.date_to
 
-        chart_date_layout.addWidget(QLabel("С:"))
-        chart_date_layout.addWidget(self.chart_date_from)
-        chart_date_layout.addWidget(QLabel("По:"))
-        chart_date_layout.addWidget(self.chart_date_to)
+        # увеличиваем размер
+        # self.chart_date_from.setMinimumHeight(32)
+        # self.chart_date_to.setMinimumHeight(32)
 
-        self.chart_date_widget.hide()  # изначально скрыто
+        font = self.chart_date_from.font()
+        font.setPointSize(font.pointSize() + 1)
+        self.chart_date_from.setFont(font)
+        self.chart_date_to.setFont(font)
 
-        top_layout.insertWidget(0, self.chart_date_widget)
+        date_layout.addWidget(QLabel("С:"))
+        date_layout.addWidget(self.chart_date_from, 1)
+        date_layout.addSpacing(10)
+        date_layout.addWidget(QLabel("По:"))
+        date_layout.addWidget(self.chart_date_to, 1)
+        # date_layout.addStretch()
+
+        self.header_stack.addWidget(self.date_group)
         # ===== end Управление датами графика =====
 
         self.stacked_widget.addWidget(self.graph_widget)
@@ -348,17 +368,13 @@ class MainWindow(QMainWindow):
         self.view_table_btn.setChecked(True)
         self.view_chart_btn.setChecked(False)
         self.stacked_widget.setCurrentIndex(0)
-
-        self.week_nav_widget.show()
-        self.chart_date_widget.hide()
+        self.header_stack.setCurrentIndex(0)
 
     def switch_to_chart(self):
         self.view_chart_btn.setChecked(True)
         self.view_table_btn.setChecked(False)
         self.stacked_widget.setCurrentIndex(1)
-
-        self.week_nav_widget.hide()
-        self.chart_date_widget.show()
+        self.header_stack.setCurrentIndex(1)
 
     def set_radio_visible(self, btn, visible: bool):
         if not visible and btn.isChecked():
