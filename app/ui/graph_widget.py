@@ -71,6 +71,7 @@ class GraphWidget(QWidget):
         self._pan_start = None
         self._pan_xlim = None
         self._pan_ylim = None
+        self._dark_mode = False
 
         self._init_ui()
 
@@ -128,6 +129,46 @@ class GraphWidget(QWidget):
         layout.addWidget(self.canvas, 5)
 
         self.canvas.mpl_connect("pick_event", self.on_pick)
+
+    def apply_light_style(self):
+        self._dark_mode = False
+
+        self.figure.patch.set_facecolor("#ffffff")
+
+        if hasattr(self, "ax"):
+            self.ax.set_facecolor("#ffffff")
+
+            self.ax.tick_params(colors="#2b2b2b")
+            self.ax.xaxis.label.set_color("#2b2b2b")
+            self.ax.yaxis.label.set_color("#2b2b2b")
+            self.ax.title.set_color("#2b2b2b")
+
+            for spine in self.ax.spines.values():
+                spine.set_color("#cccccc")
+
+            self.ax.grid(True, color="#dddddd", alpha=0.6)
+
+        self.canvas.draw_idle()
+
+    def apply_dark_style(self):
+        self._dark_mode = True
+
+        self.figure.patch.set_facecolor("#2b2b2b")
+
+        if hasattr(self, "ax"):
+            self.ax.set_facecolor("#2f3133")
+
+            self.ax.tick_params(colors="#e6e6e6")
+            self.ax.xaxis.label.set_color("#e6e6e6")
+            self.ax.yaxis.label.set_color("#e6e6e6")
+            self.ax.title.set_color("#ffffff")
+
+            for spine in self.ax.spines.values():
+                spine.set_color("#555555")
+
+            self.ax.grid(True, color="#444444", alpha=0.5)
+
+        self.canvas.draw_idle()
 
     def _toggle_all_generic(self, state, target_list):
 
@@ -302,6 +343,9 @@ class GraphWidget(QWidget):
 
         found = False
 
+        xlim = self.ax.get_xlim()
+        ylim = self.ax.get_ylim()
+
         for line in self.ax.get_lines():
 
             contains, info = line.contains(event)
@@ -317,14 +361,9 @@ class GraphWidget(QWidget):
                 return
 
             _, week_key = week_indexes[ind]
-
             label = line.get_label()
 
-            # красиво отображаем название линии
-            if label == "__total__":
-                display_name = "Всего"
-            else:
-                display_name = label
+            display_name = "Всего" if label == "__total__" else label
 
             text = (
                 f"{display_name}\n"
@@ -332,18 +371,35 @@ class GraphWidget(QWidget):
                 f"Значение: {int(y)}"
             )
 
+            # 🔥 Определяем положение точки
+            x_mid = (xlim[0] + xlim[1]) / 2
+            y_mid = (ylim[0] + ylim[1]) / 2
+
+            offset_x = 15 if x < x_mid else -120
+            offset_y = 15 if y < y_mid else -60
+
+            # для тёмной темы корректируем цвет
+            if self._dark_mode:
+                bbox_props = dict(boxstyle="round", fc="#3a3a3a", ec="#aaaaaa")
+                text_color = "#ffffff"
+            else:
+                bbox_props = dict(boxstyle="round", fc="white", ec="black")
+                text_color = "#000000"
+
             if self._hover_annotation is None:
                 self._hover_annotation = self.ax.annotate(
                     text,
                     xy=(x, y),
-                    xytext=(15, 15),
+                    xytext=(offset_x, offset_y),
                     textcoords="offset points",
-                    bbox=dict(boxstyle="round", fc="white", ec="black"),
-                    arrowprops=dict(arrowstyle="->")
+                    bbox=bbox_props,
+                    arrowprops=dict(arrowstyle="->"),
+                    color=text_color
                 )
             else:
                 self._hover_annotation.xy = (x, y)
                 self._hover_annotation.set_text(text)
+                self._hover_annotation.set_position((offset_x, offset_y))
                 self._hover_annotation.set_visible(True)
 
             found = True
@@ -645,6 +701,11 @@ class GraphWidget(QWidget):
         # создаём новый axes и сохраняем его
         self.ax = self.figure.add_subplot(111)
 
+        if self._dark_mode:
+            self.apply_dark_style()
+        else:
+            self.apply_light_style()
+
         # 🔥 ВАЖНО: сбрасываем hover-аннотацию
         self._hover_annotation = None
 
@@ -707,7 +768,7 @@ class GraphWidget(QWidget):
                     range(len(totals)),
                     totals,
                     linestyle="--",
-                    color="black",
+                    color="black" if not self._dark_mode else 'white',
                     label="__total__",
                     picker=6   # ← ВАЖНО
                 )
@@ -830,7 +891,6 @@ class GraphWidget(QWidget):
             return
 
         _, week_key = week_indexes[ind]
-        category = self.category_combo.currentText()
 
         ydata = line.get_ydata()
         clicked_value = int(ydata[ind])
@@ -838,9 +898,39 @@ class GraphWidget(QWidget):
         week_data = self.raw_data.get(week_key, {})
         label = line.get_label()
 
-        # ==========================
-        # КЛИК ПО "ВСЕГО"
-        # ==========================
+        # ======================================================
+        # 🔥 РЕЖИМ СРАВНЕНИЯ КАТЕГОРИЙ
+        # ======================================================
+        if self.compare_mode.isChecked():
+
+            category = label  # ← берём категорию из линии
+
+            judges_with_counts = []
+
+            for judge, judge_data in week_data.items():
+                cases = judge_data.get(category, [])
+                count = len(cases)
+
+                if count > 0:
+                    judges_with_counts.append(judge)
+
+            data = {
+                "week_key": week_key,
+                "category": category,
+                "judges": judges_with_counts,
+                "value": clicked_value,
+                "double_click": mouse_event.dblclick,
+                "is_total": False
+            }
+
+            self.point_clicked.emit(data)
+            return
+
+        # ======================================================
+        # 🔥 КЛИК ПО "ВСЕГО"
+        # ======================================================
+        category = self.category_combo.currentText()
+
         if label == "__total__":
 
             judges_with_counts = []
@@ -848,13 +938,11 @@ class GraphWidget(QWidget):
             for judge, judge_data in week_data.items():
                 cases = judge_data.get(category, [])
                 count = len(cases)
+
                 if count > 0:
                     judges_with_counts.append((judge, count))
 
-            # 🔥 сортировка по убыванию количества дел
             judges_with_counts.sort(key=lambda x: x[1], reverse=True)
-
-            # берём только имена судей
             matched_judges = [j[0] for j in judges_with_counts]
 
             data = {
@@ -869,10 +957,10 @@ class GraphWidget(QWidget):
             self.point_clicked.emit(data)
             return
 
-        # ==========================
-        # КЛИК ПО ЛИНИИ СУДЬИ
-        # ==========================
-        # 🔥 Ищем ВСЕХ судей с таким же значением
+        # ======================================================
+        # 🔥 ОБЫЧНЫЙ РЕЖИМ (СУДЬИ)
+        # ======================================================
+
         matched_judges = []
 
         for judge, judge_data in week_data.items():

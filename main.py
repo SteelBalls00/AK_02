@@ -6,7 +6,9 @@
 - закрепить первый столбец с судьями,в случае ширины таблицы за пределы экрана
 - в детализации отделить визуально рассмотренные в году
 - скрины графиков
-- детализация пр сравнении категорий
+- детализация при сравнении категорий
+- нормальные кнопки для таблицы и графиков
+- поправить стиль темной темы
 
 поправить:
 - бокс с выбором суда иногда появляется пустой при наличии 1 суда
@@ -444,9 +446,13 @@ class MainWindow(QMainWindow):
         if checked:
             app.setStyleSheet(DARK_STYLE)
             self.theme_toggle_btn.setText("🌞 Светлая тема")
+            self.graph_widget.apply_dark_style()
+            self.graph_widget.update_chart()
         else:
             app.setStyleSheet(LIGHT_STYLE)
             self.theme_toggle_btn.setText("🌙 Тёмная тема")
+            self.graph_widget.apply_light_style()
+            self.graph_widget.update_chart()
 
     def select_week_by_date(self, selected_date: date):
         """
@@ -955,16 +961,15 @@ class MainWindow(QMainWindow):
 
     def on_graph_point_clicked(self, data):
         def normalize_case_line(raw: str) -> str:
+            _PREFIX_RE = re.compile(r"\d\.\d{3}-")
             """
             Удаляет ТОЛЬКО префикс вида '2.123-' (цифра + точка + 3 цифры + дефис).
             Если такого шаблона нет — строка возвращается без изменений.
             """
-            _PREFIX_RE = re.compile(r"\d\.\d{3}-")
             return _PREFIX_RE.sub("", raw, count=1)
 
         week_key = data["week_key"]
         category = data["category"]
-        judges = data["judges"]
         is_double = data["double_click"]
 
         weeks = list(self.current_raw_data.keys())
@@ -983,17 +988,44 @@ class MainWindow(QMainWindow):
 
         week_data = self.current_raw_data.get(week_key, {})
 
-        if data.get("is_total"):
-            title_line = "Всего по всем судьям"
-        else:
-            title_line = "Детализация"
-
         lines = [
             f"Неделя: {week_key}",
             f"Показатель: {category}",
-            title_line,
             ""
         ]
+
+        # ===================================================
+        # 🔥 РЕЖИМ СРАВНЕНИЯ КАТЕГОРИЙ
+        # ===================================================
+        if self.graph_widget.compare_mode.isChecked():
+
+            judges_with_counts = []
+
+            for judge, judge_data in week_data.items():
+                cases = judge_data.get(category, [])
+                count = len(cases)
+
+                if count > 0:
+                    judges_with_counts.append((judge, count))
+
+            # сортировка по убыванию
+            judges_with_counts.sort(key=lambda x: x[1], reverse=True)
+
+            if not judges_with_counts:
+                self.details_view.setPlainText("Детализация отсутствует.")
+                return
+
+            for judge, count in judges_with_counts:
+                lines.append(f"Судья: {judge} — дел: {count}")
+
+            self.details_view.setPlainText("\n".join(lines))
+            return
+
+        # ===================================================
+        # 🔥 ОБЫЧНЫЙ РЕЖИМ (СУДЬИ)
+        # ===================================================
+
+        judges = data["judges"]
 
         has_data = False
 
@@ -1006,11 +1038,11 @@ class MainWindow(QMainWindow):
 
             has_data = True
 
-            count = len(cases)
+            lines.append(f"Судья: {judge} — дел: {len(cases)}")
 
-            lines.append(f"Судья: {judge} — дел: {count}")
             for case in cases:
                 lines.append(f"  • {normalize_case_line(case)}")
+
             lines.append("-" * 40)
             lines.append("")
 
@@ -1086,8 +1118,7 @@ QTableView {
 QTableView::item:selected {
     background-color: #cfe3f6;
 }
-
-/* --- Кнопки --- */
+/* ================ QPushButton ================ */
 QPushButton {
     background-color: #3a6ea5;
     color: white;
@@ -1163,24 +1194,22 @@ QLabel[role="week-label"] {
     font-size: 20pt;
     font-weight: bold;
 }
-
-/* --- ComboBox --- */
+/* ================== ComboBox ================== */
 QComboBox {
     background-color: #ffffff;
     border: 1px solid #cfcfcf;
     padding: 4px;
     border-radius: 4px;
+    min-height: 18px;
 }
-
-/* --- Детализация --- */
+/* ================== QTextEdit ================== */
 QTextEdit {
     background-color: #fcfcfc;
     border: 1px solid #cfcfcf;
     border-radius: 4px;
     padding: 6px;
 }
-
-/* --- ToolButton (если появятся) --- */
+/* ================== ToolButton ================== */
 QToolButton {
     background-color: transparent;
     border: none;
@@ -1189,6 +1218,41 @@ QToolButton {
 
 QToolButton:hover {
     background-color: #e6f0fa;
+}
+/* ================== QGroupBox ================== */
+QGroupBox {
+    font-weight: bold;
+    border: 1px solid #cfcfcf;
+    border-radius: 6px;
+    margin-top: 8px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 4px;
+}
+/* ================== QDateEdit ================== */
+QDateEdit {
+    background-color: #ffffff;
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    padding: 4px 6px;
+    min-height: 18px;
+}
+
+QDateEdit:hover {
+    border: 1px solid #a8c5e6;
+}
+
+QDateEdit:focus {
+    border: 1px solid #4a86c5;
+}
+
+
+QDateEdit::down-arrow {
+    width: 10px;
+    height: 10px;
 }
 """
 
@@ -1201,7 +1265,7 @@ QWidget {
 }
 
 /* ================== ПАНЕЛИ ================== */
-QFrame, QWidget#panel {
+QFrame#panel {
     background-color: #313335;
     border: 1px solid #444444;
     border-radius: 4px;
@@ -1209,7 +1273,8 @@ QFrame, QWidget#panel {
 
 /* ================== LABEL ================== */
 QLabel {
-    color: #e6e6e6;
+    background: transparent;
+    border: none;
 }
 
 QLabel[role="week-label"] {
@@ -1228,8 +1293,6 @@ QPushButton {
 
 QPushButton:hover {
     background-color: #5a96d5;
-    font-size: 20pt;
-    font-weight: bold;
 }
 
 QPushButton:pressed {
@@ -1270,6 +1333,7 @@ QComboBox {
     border: 1px solid #555555;
     padding: 4px;
     border-radius: 4px;
+    min-height: 18px;
 }
 
 QComboBox QAbstractItemView {
@@ -1346,6 +1410,41 @@ QTextEdit {
 /* ================== SPLITTER ================== */
 QSplitter::handle {
     background-color: #444444;
+}
+/* ================== QGroupBox ================== */
+QGroupBox {
+    font-weight: bold;
+    border: 1px solid #444444;
+    border-radius: 6px;
+    margin-top: 8px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 4px;
+}
+/* ================== DateEdit ================== */
+QDateEdit {
+    background-color: #2f3133;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 4px 6px;
+    min-height: 18px;
+    color: #e6e6e6;
+}
+
+QDateEdit:hover {
+    border: 1px solid #5a96d5;
+}
+
+QDateEdit:focus {
+    border: 1px solid #4a86c5;
+}
+
+QDateEdit::down-arrow {
+    width: 10px;
+    height: 10px;
 }
 """
 
