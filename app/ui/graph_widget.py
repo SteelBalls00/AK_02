@@ -75,7 +75,7 @@ class GraphWidget(QWidget):
 
         self._init_ui()
 
-    # ---------------- UI ----------------
+    # ---------------- UI ---------------
 
     def _init_ui(self):
         layout = QHBoxLayout(self)

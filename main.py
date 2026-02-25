@@ -3,12 +3,10 @@
 '''
 - путь к базам в файле настроек
 - столбцы для бездвижа и возвратов
-- закрепить первый столбец с судьями,в случае ширины таблицы за пределы экрана
+- закрепить первый столбец с судьями, в случае ширины таблицы за пределы экрана
 - в детализации отделить визуально рассмотренные в году
 - скрины графиков
-- детализация при сравнении категорий
 - нормальные кнопки для таблицы и графиков
-- поправить стиль темной темы
 
 поправить:
 - бокс с выбором суда иногда появляется пустой при наличии 1 суда
@@ -115,6 +113,8 @@ class MainWindow(QMainWindow):
             QSizePolicy.Fixed
         )
         self.header_stack.setFixedHeight(80)
+        self.header_stack.setMinimumWidth(480)
+        # self.header_stack.setMaximumWidth(480)
         top_layout.addWidget(self.header_stack)
 
         self.week_nav_widget = QWidget()
@@ -193,23 +193,32 @@ class MainWindow(QMainWindow):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         word_icon_path = os.path.join(script_dir, "Word_png.png")
 
-        self.word_export_btn = QPushButton()
-        self.word_export_btn.setIcon(QIcon(word_icon_path))
-        self.word_export_btn.setIconSize(QSize(86, 25))
-        self.word_export_btn.clicked.connect(self.export_to_word)
-        self.word_export_btn.setObjectName("export_to_word")
+        script_dir = os.path.dirname(os.path.abspath(__file__))
 
-        top_layout.addWidget(self.word_export_btn)
+        self.view_table_btn = QToolButton()
+        self.view_chart_btn = QToolButton()
 
+        self.view_table_btn.setIcon(QIcon(os.path.join(script_dir, "Tab_btn.png")))
+        self.view_chart_btn.setIcon(QIcon(os.path.join(script_dir, "Graph_btn.png")))
 
+        # размер иконки (уменьшили)
+        self.view_table_btn.setIconSize(QSize(90, 60))
+        self.view_chart_btn.setIconSize(QSize(90, 60))
 
-        self.view_table_btn = QPushButton("Таблица")
-        self.view_chart_btn = QPushButton("Графики")
+        # текст
+        self.view_table_btn.setText("Таблица")
+        self.view_chart_btn.setText("График")
+
+        # иконка сверху, текст снизу
+        self.view_table_btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        self.view_chart_btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
 
         for btn in (self.view_table_btn, self.view_chart_btn):
             btn.setCheckable(True)
-            btn.setMinimumHeight(48)
-            btn.setMinimumWidth(120)
+            btn.setAutoExclusive(True)  # чтобы работали как вкладки
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setObjectName("viewSwitchBtn")
+            btn.setFixedSize(110, 95)
 
         self.view_table_btn.setChecked(True)
 
@@ -219,7 +228,13 @@ class MainWindow(QMainWindow):
         top_layout.addWidget(self.view_table_btn)
         top_layout.addWidget(self.view_chart_btn)
 
+        self.word_export_btn = QPushButton()
+        self.word_export_btn.setIcon(QIcon(word_icon_path))
+        self.word_export_btn.setIconSize(QSize(86, 25))
+        self.word_export_btn.clicked.connect(self.export_to_word)
+        self.word_export_btn.setObjectName("export_to_word")
 
+        top_layout.addWidget(self.word_export_btn)
 
         # растяжка, чтобы элементы не слипались
         top_layout.addStretch()
@@ -1164,6 +1179,22 @@ QPushButton[role="week-nav"]:hover {
 QPushButton[role="week-nav"]:pressed {
     background-color: rgba(0, 0, 0, 0.15);
 }
+QToolButton#viewSwitchBtn {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    font-weight: bold;
+}
+
+QToolButton#viewSwitchBtn:hover {
+    background-color: rgba(74,134,197,0.08);
+    border-radius: 12px;
+}
+
+QToolButton#viewSwitchBtn:checked {
+    background-color: rgba(74,134,197,0.18);
+    border-radius: 14px;
+}
 
 /* ================ RadioButton ================ */
 /* --- Radio / Check --- */
@@ -1314,7 +1345,22 @@ QPushButton[role="week-nav"]:hover {
 QPushButton[role="week-nav"]:pressed {
     background-color: rgba(255, 255, 255, 0.15);
 }
+QToolButton#viewSwitchBtn {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    font-weight: bold;
+}
 
+QToolButton#viewSwitchBtn:hover {
+    background-color: rgba(90,150,213,0.15);
+    border-radius: 12px;
+}
+
+QToolButton#viewSwitchBtn:checked {
+    background-color: rgba(90,150,213,0.30);
+    border-radius: 14px;
+}
 
 /* ================== TOOL BUTTON ================== */
 QToolButton {
