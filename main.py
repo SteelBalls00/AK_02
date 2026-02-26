@@ -1,15 +1,12 @@
-# pyinstaller --onedir --noconsole --hidden-import=openpyxl --name="AK_v1.5" main.py
+# pyinstaller --onedir --noconsole --hidden-import=openpyxl --add-data "Tab_btn.png:." --add-data "Graph_btn.png:." --add-data "Case_analysis.ico:." --icon=Case_analysis.ico --name="Case_analysis" main.py
 
 '''
 - путь к базам в файле настроек
 - столбцы для бездвижа и возвратов
 - закрепить первый столбец с судьями, в случае ширины таблицы за пределы экрана
 - в детализации отделить визуально рассмотренные в году
-- скрины графиков
-- нормальные кнопки для таблицы и графиков
-
+- разделение по категориям????
 поправить:
-- бокс с выбором суда иногда появляется пустой при наличии 1 суда
 
 глобальные правки:
 - поправить или сделать новый апдейт
@@ -24,7 +21,7 @@ from openpyxl import Workbook
 import traceback
 
 from PyQt5.QtWidgets import QFrame, QToolButton, QStackedWidget, QSizePolicy
-from PyQt5.QtCore import Qt, QDate, QEasingCurve
+from PyQt5.QtCore import Qt, QDate, QEasingCurve, QSettings
 from PyQt5.QtWidgets import (
     QApplication, QMenu, QMainWindow, QWidget,
     QVBoxLayout, QComboBox, QMessageBox, QTableView,
@@ -53,7 +50,11 @@ BASE_DIR = os.path.join(os.path.dirname(__file__), "bases")
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Анализ судебной статистики")
+        self.setWindowTitle("Анализ картотек")
+
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        icon_path = os.path.join(script_dir, "Case_analysis.ico")
+        self.setWindowIcon(QIcon(icon_path))
 
         self.bases_repo = BasesRepository(BASE_DIR)
         self.stats_repo = StatisticsRepository()
@@ -71,6 +72,10 @@ class MainWindow(QMainWindow):
         self.current_week_key = None
 
         self.active_workers = []
+
+        # self.settings = QSettings("CaseAnalysis", "CaseAnalysisApp")
+        self.settings = QSettings("settings.ini", QSettings.IniFormat)
+        self.settings.setIniCodec("UTF-8")
 
         # ====== UI ======
         self._init_ui()
@@ -109,12 +114,10 @@ class MainWindow(QMainWindow):
 
         self.header_stack = QStackedWidget()
         self.header_stack.setSizePolicy(
-            QSizePolicy.Expanding,
+            QSizePolicy.Maximum,
             QSizePolicy.Fixed
         )
         self.header_stack.setFixedHeight(80)
-        self.header_stack.setMinimumWidth(480)
-        # self.header_stack.setMaximumWidth(480)
         top_layout.addWidget(self.header_stack)
 
         self.week_nav_widget = QWidget()
@@ -129,15 +132,15 @@ class MainWindow(QMainWindow):
         self.header_stack.addWidget(self.week_nav_widget)
 
         # --- Суд ---
-        court_group = QGroupBox("Суд")
-        court_layout = QVBoxLayout(court_group)
+        self.court_group = QGroupBox("Суд")
+        court_layout = QVBoxLayout(self.court_group)
 
         self.court_combo = QComboBox()
         self.court_combo.currentTextChanged.connect(self.on_court_changed)
 
         court_layout.addWidget(self.court_combo)
 
-        top_layout.addWidget(court_group)
+        top_layout.addWidget(self.court_group)
 
         # --- Специализация ---
         spec_group = QGroupBox("Специализация")
@@ -337,6 +340,10 @@ class MainWindow(QMainWindow):
 
         # ===== begin Управление датами графика =====
         self.date_group = QGroupBox("Диапазон дат для графика")
+        self.date_group.setSizePolicy(
+            QSizePolicy.Maximum,
+            QSizePolicy.Fixed
+        )
         date_layout = QHBoxLayout(self.date_group)
         date_layout.setContentsMargins(8, 4, 8, 4)
         date_layout.setSpacing(6)
@@ -344,6 +351,8 @@ class MainWindow(QMainWindow):
 
         self.chart_date_from = self.graph_widget.date_from
         self.chart_date_to = self.graph_widget.date_to
+        self.chart_date_from.setFixedWidth(200)
+        self.chart_date_to.setFixedWidth(200)
 
         # увеличиваем размер
         # self.chart_date_from.setMinimumHeight(32)
@@ -355,11 +364,11 @@ class MainWindow(QMainWindow):
         self.chart_date_to.setFont(font)
 
         date_layout.addWidget(QLabel("С:"))
-        date_layout.addWidget(self.chart_date_from, 1)
+        date_layout.addWidget(self.chart_date_from)
         date_layout.addSpacing(10)
         date_layout.addWidget(QLabel("По:"))
-        date_layout.addWidget(self.chart_date_to, 1)
-        # date_layout.addStretch()
+        date_layout.addWidget(self.chart_date_to)
+        date_layout.addStretch()
 
         self.header_stack.addWidget(self.date_group)
         # ===== end Управление датами графика =====
@@ -380,6 +389,12 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         self._ui_ready = True
+
+    def closeEvent(self, event):
+        self.settings.setValue("court", self.court_combo.currentText())
+        self.settings.setValue("specialization", self.specialization)
+        self.settings.setValue("instance", self.instance)
+        event.accept()
 
     def switch_to_table(self):
         self.view_table_btn.setChecked(True)
@@ -824,21 +839,46 @@ class MainWindow(QMainWindow):
         if blocks:
             self.details_view.setPlainText("\n\n".join(blocks))
 
+    def restore_last_selection(self, courts):
+        saved_court = self.settings.value("court")
+        saved_spec = self.settings.value("specialization")
+        saved_instance = self.settings.value("instance")
+
+        restored = False
+
+        if saved_court and saved_court in courts:
+            index = self.court_combo.findText(saved_court)
+            if index >= 0:
+                self.court_combo.setCurrentIndex(index)
+                restored = True
+
+        if saved_spec and saved_spec in self.spec_buttons:
+            self.spec_buttons[saved_spec].setChecked(True)
+            self.specialization = saved_spec
+
+        if saved_instance and saved_instance in self.instance_buttons:
+            self.instance_buttons[saved_instance].setChecked(True)
+            self.instance = saved_instance
+
+        return restored
+
     def _load_courts(self):
         courts = self.bases_repo.get_courts_with_any_pkls()
 
         self.court_combo.clear()
         self.court_combo.addItems(courts)
 
-        # --- если суд только один ---
-        if len(courts) <= 1:
-            self.court_combo.hide()
-        else:
-            self.court_combo.show()
-
-        # автоматически выбираем первый (или единственный)
         if courts:
-            self.court_combo.setCurrentIndex(0)
+            restored = self.restore_last_selection(courts)
+
+            if not restored:
+                self.court_combo.setCurrentIndex(0)
+
+            # 🔥 ВАЖНО — принудительно загружаем
+            self.on_court_changed(self.court_combo.currentText())
+
+        # показать / скрыть groupbox
+        self.court_group.setVisible(len(courts) > 1)
 
     def reload_current_court(self):
         if not hasattr(self, "court_combo"):
@@ -867,41 +907,51 @@ class MainWindow(QMainWindow):
         self.reload_current_court()
 
     def on_court_changed(self, court_name):
-        # Получаем доступные инстанции для суда
-        available_instances = self.bases_repo.get_available_instances(court_name, self.specialization)
-
-        # 🔑 Если текущая инстанция недоступна — переключаемся
-        if self.instance not in available_instances:
-            self.instance = "first"
-            self.instance_buttons["first"].setChecked(True)
-
-        # 1️⃣ Обновляем доступные specialization
-        self.update_specialization_buttons(court_name)
-
-        # 2️⃣ Обновляем доступные инстанции
-        self.update_instance_buttons(court_name)
+        if not court_name:
+            return
 
         pkl_files = self.bases_repo.get_pkl_files(court_name)
 
-        # есть ли для выбранной специализации апел. база
-        has_appeal = any(
-            info.instance == "appeal" and info.specialization == self.specialization
-            for name, info in PKL_MAPPING.items()
-            if name in pkl_files
-        )
+        if not pkl_files:
+            self.model.set_table_data({})
+            return
 
-        # и если есть, то ставим активной
-        self.instance_buttons["appeal"].setEnabled(has_appeal)
-
-        if not has_appeal and self.instance == "appeal":
-            self.instance_buttons["first"].setChecked(True)
-
+        # =========================================
+        # 1️⃣ Проверяем — существует ли текущая комбинация
+        # =========================================
         pkl_name = select_pkl_for_context(
             pkl_files,
             specialization=self.specialization,
             instance=self.instance
         )
 
+        # =========================================
+        # 2️⃣ Если нет — автоматически ищем валидную
+        # =========================================
+        if not pkl_name:
+            found = False
+
+            for spec in self.spec_buttons.keys():
+                for inst in ("first", "appeal"):
+                    candidate = select_pkl_for_context(
+                        pkl_files,
+                        specialization=spec,
+                        instance=inst
+                    )
+                    if candidate:
+                        self.specialization = spec
+                        self.instance = inst
+
+                        self.spec_buttons[spec].setChecked(True)
+                        self.instance_buttons[inst].setChecked(True)
+
+                        pkl_name = candidate
+                        found = True
+                        break
+                if found:
+                    break
+
+        # если вообще нет ни одной подходящей базы
         if not pkl_name:
             QMessageBox.warning(
                 self,
@@ -911,22 +961,29 @@ class MainWindow(QMainWindow):
             self.model.set_table_data({})
             return
 
+        # =========================================
+        # 3️⃣ Обновляем доступность кнопок UI
+        # =========================================
+        self.update_specialization_buttons(court_name)
+        self.update_instance_buttons(court_name)
+
+        # =========================================
+        # 4️⃣ Загружаем pkl
+        # =========================================
         pkl_path = self.bases_repo.get_pkl_path(court_name, pkl_name)
 
-        # получаем количество недель
-        # если путь тот же — просто обновляем таблицу
+        # если тот же файл — просто обновляем таблицу
         if self.current_pkl_path == pkl_path and self.current_raw_data is not None:
             self.load_table_async()
             return
 
-        # загружаем pkl ОДИН раз
         raw_data, context = self.stats_repo.load(pkl_path)
 
         self.current_raw_data = raw_data
         self.current_context = context
         self.current_pkl_path = pkl_path
 
-        # обновляем графики ТОЛЬКО при смене pkl
+        # обновляем график
         self.graph_widget.set_data(
             raw_data=self.current_raw_data,
             processor=ProcessorFactory.get(context)
@@ -935,7 +992,7 @@ class MainWindow(QMainWindow):
         weeks = list(raw_data.keys())
         self.max_week_index = max(0, len(weeks) - 1)
 
-        # --- Пытаемся сохранить текущую неделю ---
+        # пытаемся сохранить текущую неделю
         if self.current_week_key in weeks:
             self.week_index = weeks.index(self.current_week_key)
         else:
@@ -943,7 +1000,6 @@ class MainWindow(QMainWindow):
 
         self.load_table_async()
 
-        # если вышли за границы — корректируем
         if self.week_index > self.max_week_index:
             self.week_index = self.max_week_index
 
@@ -1501,8 +1557,13 @@ def excepthook(type, value, tb):
 
 def main():
     app = QApplication(sys.argv)
-    # app.setStyle("macOS")  # очень важно
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    icon_path = os.path.join(script_dir, "Case_analysis.ico")
+    app.setWindowIcon(QIcon(icon_path))
+
     app.setStyleSheet(LIGHT_STYLE)
+
     window = MainWindow()
     window.resize(1200, 800)
     window.showMaximized()
