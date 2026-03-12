@@ -745,6 +745,7 @@ class MainWindow(QMainWindow):
             for v in values:
                 v = normalize_case_line(v)
                 lines.append(f"  • {v}")
+            lines.append(f'{"-"*60}')
 
         return "\n".join(lines)
 
