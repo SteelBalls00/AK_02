@@ -727,16 +727,16 @@ class MainWindow(QMainWindow):
             return _PREFIX_RE.sub("", raw, count=1)
 
         column = column.replace('\n', ' ')
-        lines = [
-            f"Судья: {judge}",
-            f"Показатель: {column}",
-        ]
+        if column != 'Судья':
+            lines = [
+                f"Судья: {judge}",
+                f"Показатель: {column}",
+            ]
 
         if not details:
             lines.append("Детализация отсутствует")
             return "\n".join(lines)
 
-        # lines.append("Исходные значения:")
 
         for title, values in details:
             total = len(values) if values else 0
