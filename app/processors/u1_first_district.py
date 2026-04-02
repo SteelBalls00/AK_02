@@ -5,6 +5,46 @@ class U1FirstDistrictProcessor(BaseProcessor):
     """
     У1 — 1 инстанция — районный / городской суд
     """
+
+    def get_cell_details(self, judge, column, week_index):
+        if column == "Остаток":
+            week_key = list(self.raw_data.keys())[week_index]
+            week_data = self.raw_data.get(week_key, {})
+            judge_data = week_data.get(judge, {})
+
+            rest_cases = judge_data.get("Остаток", []) or []
+            suspended_cases = judge_data.get("Приостановлено дел", []) or []
+            suspended_army_cases = judge_data.get("Приостановлено дел из-за призыва", []) or []
+
+            def extract_case_key(raw: str) -> str:
+                raw = raw.strip()
+                if "," in raw:
+                    return raw.split(",", 1)[0].strip()
+                return raw
+
+            # объединяем все приостановленные по номеру дела, а не по полной строке
+            suspended_all = []
+            suspended_keys = set()
+
+            for case in suspended_cases + suspended_army_cases:
+                key = extract_case_key(case)
+                if key not in suspended_keys:
+                    suspended_all.append(case)
+                    suspended_keys.add(key)
+
+            # остаток без приостановленных — тоже по номеру дела
+            active_rest = [
+                case for case in rest_cases
+                if extract_case_key(case) not in suspended_keys
+            ]
+
+            return [
+                ("Остаток без приостановленных дел", active_rest),
+                ("Приостановленные дела", suspended_all),
+            ]
+
+        return super().get_cell_details(judge, column, week_index)
+
     word_template_key = "district_first"
     specialization = "U1"
 
@@ -151,7 +191,7 @@ class U1FirstDistrictProcessor(BaseProcessor):
                 "Количество рассмотренных\nдел за отчётную неделю",
                 "Количество рассмотренных\nдел с начала календарного года",
                 "Количество дел, оконченных\nс нарушением срока в этой неделе",
-                "Остаток дел на конец\nотчётной недели",
+                "Остаток дел на конец отчётной недели\n(остаток без приостановленных)",
                 "Количество приостановленных дел\n(без учета военного призыва)",
                 "Количество дел, приостановленных\nтолько из-за военного призыва",
                 "Дела со сроком рассмотрения от 2 до 6 месяцев:\nкол-во таких дел на конец недели\n(кол-во таких дел, рассмотренных с 01 января по текущую неделю)",
@@ -164,6 +204,12 @@ class U1FirstDistrictProcessor(BaseProcessor):
         }
 
     def _format_row(self, j, v):
+        rest_without_suspended = (
+                v["Остаток"]
+                - v["Приостановлено дел"]
+                - v["Приостановлено дел из-за призыва"]
+        )
+
         return [
             j,
             v["Остаток на начало года"],
@@ -172,7 +218,7 @@ class U1FirstDistrictProcessor(BaseProcessor):
             v["Рассмотрено за неделю"],
             v["Рассмотрено с начала года"],
             v["Окончено с нарушением срока"],
-            v["Остаток"],
+            f'{v["Остаток"]} ({rest_without_suspended})',
             v["Приостановлено дел"],
             v["Приостановлено дел из-за призыва"],
             f'{v["От 2 до 6 месяцев"]} ({v["От 2 до 6 месяцев (рассмотренные в текущем году)"]})',
@@ -184,6 +230,12 @@ class U1FirstDistrictProcessor(BaseProcessor):
         ]
 
     def _build_total_row(self, t):
+        total_rest_without_suspended = (
+                t["Остаток"]
+                - t["Приостановлено дел"]
+                - t["Приостановлено дел из-за призыва"]
+        )
+
         return [
             "Всего",
             t["Остаток на начало года"],
@@ -192,7 +244,7 @@ class U1FirstDistrictProcessor(BaseProcessor):
             t["Рассмотрено за неделю"],
             t["Рассмотрено с начала года"],
             t["Окончено с нарушением срока"],
-            t["Остаток"],
+            f'{t["Остаток"]} ({total_rest_without_suspended})',
             t["Приостановлено дел"],
             t["Приостановлено дел из-за призыва"],
             f'{t["От 2 до 6 месяцев"]} ({t["От 2 до 6 месяцев (рассмотренные в текущем году)"]})',

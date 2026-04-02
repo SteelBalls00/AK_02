@@ -559,45 +559,35 @@ class MainWindow(QMainWindow):
 
     def parse_details_blocks(self):
         """
-        Разбирает текст детализации на блоки:
-        [
-            {
-                "header": ["Судья: ...", "Показатель: ..."],
-                "items": ["2-2735/2025, ...", ...]
-            },
-            ...
-        ]
+        Разбивает детализацию на блоки для экспорта,
+        сохраняя ВСЕ строки внутри блока в исходном порядке.
+
+        Новый блок начинается с:
+        - "Судья:"
+        - "Неделя:"
         """
+
         text = self.details_view.toPlainText()
         lines = [l.rstrip() for l in text.splitlines()]
 
         blocks = []
-        current_header = []
-        current_items = []
+        current_block = []
+
+        def is_block_start(line: str) -> bool:
+            return line.startswith("Судья:") or line.startswith("Неделя:")
 
         for line in lines:
-            if not line:
+            if not line.strip():
                 continue
 
-            if line.startswith("Судья:") or line.startswith("Показатель:"):
-                if current_items:
-                    blocks.append({
-                        "header": current_header,
-                        "items": current_items
-                    })
-                    current_header = []
-                    current_items = []
+            if is_block_start(line) and current_block:
+                blocks.append(current_block)
+                current_block = []
 
-                current_header.append(line)
+            current_block.append(line)
 
-            elif line.strip().startswith("•"):
-                current_items.append(line.replace("• ", "").strip())
-
-        if current_items:
-            blocks.append({
-                "header": current_header,
-                "items": current_items
-            })
+        if current_block:
+            blocks.append(current_block)
 
         return blocks
 
@@ -611,14 +601,13 @@ class MainWindow(QMainWindow):
         row = 1
 
         for block in blocks:
-            for header_line in block["header"]:
-                ws.cell(row=row, column=1, value=header_line)
-                row += 1
+            for line in block:
+                value = line
 
-            for item in block["items"]:
-                if only_numbers:
-                    item = self.extract_case_number(item)
-                ws.cell(row=row, column=1, value=item)
+                if only_numbers and line.strip().startswith("•"):
+                    value = self.extract_case_number(line)
+
+                ws.cell(row=row, column=1, value=value)
                 row += 1
 
             row += 2  # пустая строка между блоками
@@ -630,23 +619,52 @@ class MainWindow(QMainWindow):
     def export_details_to_word(self, only_numbers: bool):
         blocks = self.parse_details_blocks()
 
-        document = Document()
-        document.add_heading("Детализация", level=1)
+        def get_judge_name(block):
+            for line in block:
+                if line.startswith("Судья:"):
+                    return line.replace("Судья:", "", 1).strip()
+            return "Без судьи"
+
+        # группируем блоки по судье
+        grouped_by_judge = {}
+        judge_order = []
 
         for block in blocks:
-            # Заголовок блока
-            for header_line in block["header"]:
-                document.add_paragraph(header_line)
+            judge = get_judge_name(block)
+            if judge == 'Без судьи':
+                continue
+            if judge not in grouped_by_judge:
+                grouped_by_judge[judge] = []
+                judge_order.append(judge)
+            grouped_by_judge[judge].append(block)
 
-            document.add_paragraph("")  # отступ
+        document = Document()
+        # document.add_heading("Детализация", level=1)
 
-            # Содержимое
-            for item in block["items"]:
-                if only_numbers:
-                    item = self.extract_case_number(item)
-                document.add_paragraph(item)
+        for judge_index, judge in enumerate(judge_order):
+            judge_blocks = grouped_by_judge[judge]
 
-            document.add_page_break()
+            # заголовок страницы
+            document.add_paragraph(f"Судья: {judge}")
+            document.add_paragraph("")
+
+            for block in judge_blocks:
+                for line in block:
+                    # строку "Судья: ..." внутри блока повторно не печатаем
+                    if line.startswith("Судья:"):
+                        continue
+
+                    value = line
+                    if only_numbers and line.strip().startswith("•"):
+                        value = self.extract_case_number(line)
+
+                    document.add_paragraph(value)
+
+                document.add_paragraph("")  # отступ между показателями одного судьи
+
+            # новая страница только между судьями
+            if judge_index < len(judge_order) - 1:
+                document.add_page_break()
 
         filename = f"details_{datetime.now():%d.%m.%Y.%H.%M.%S}.docx"
         document.save(filename)
@@ -672,8 +690,7 @@ class MainWindow(QMainWindow):
 
         lines = []
         for block in blocks:
-            lines.extend(block["header"])
-            lines.extend(block["items"])
+            lines.extend(block)
             lines.append("")
 
         QApplication.clipboard().setText("\n".join(lines))
@@ -799,7 +816,19 @@ class MainWindow(QMainWindow):
                         week_index=self.week_index,
                     )
 
-                    total_cases = sum(len(values) for _, values in details)
+                    def extract_case_key(raw: str) -> str:
+                        raw = raw.strip()
+                        if "," in raw:
+                            return raw.split(",", 1)[0].strip()
+                        return raw
+
+                    unique_cases = set()
+
+                    for _, values in details:
+                        for v in values:
+                            unique_cases.add(extract_case_key(v))
+
+                    total_cases = len(unique_cases)
 
                     if total_cases > 0:
                         judges_data.append((judge, total_cases, details))
@@ -817,6 +846,8 @@ class MainWindow(QMainWindow):
                     lines.append(f"Судья: {judge} — дел: {total_cases}")
 
                     for title, values in details:
+                        lines.append(f"{title}: {len(values)}")
+
                         for v in values:
                             lines.append(f"  • {normalize_case_line(v)}")
 
