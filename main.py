@@ -1,4 +1,4 @@
-# pyinstaller --onedir --noconsole --hidden-import=openpyxl --add-data "Tab_btn.png:." --add-data "Graph_btn.png:." --add-data "Case_analysis.ico:." --icon=Case_analysis.ico --name="Case_analysis" main.py
+# pyinstaller --onedir --noconsole --hidden-import=openpyxl --add-data "Word_png.png:." --add-data "Tab_btn.png:." --add-data "Graph_btn.png:." --add-data "Case_analysis.ico:." --icon=Case_analysis.ico --name="Case_analysis" main.py
 
 '''
 - путь к базам в файле настроек
