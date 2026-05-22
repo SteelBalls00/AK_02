@@ -61,10 +61,14 @@ class BaseProcessor:
         if included_category:
             included_values = judge_data.get(included_category, [])
             if isinstance(included_values, list):
-                if column == "Без движения\nсейчас (за год)":
-                    result.append(("Оставленные без движения в текущем году", included_values))
-                else:
-                    result.append(("Рассмотренные в текущем году", included_values))
+                label = "Рассмотренные в текущем году"
+
+                if column == "Приостановлено\nдел":
+                    label = "Приостановлено дел из-за призыва"
+                elif column == "Без движения\nсейчас (за год)":
+                    label = "Оставленные без движения в текущем году"
+
+                result.append((label, included_values))
 
         return result
 
