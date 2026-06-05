@@ -153,6 +153,7 @@ class MainWindow(QMainWindow):
             "KAS": "КАС",
             "AP": "АП",
             "AP1": "АП1",
+            "AP2": "АП2",
             "U1": "УГ",
             "M_U1": "М.Уг",
             "M_AOS": "М.",
@@ -180,14 +181,20 @@ class MainWindow(QMainWindow):
         appeal_btn = QRadioButton("Апелляция")
         appeal_btn.instance_value = "appeal"
 
+        cassation_btn = QRadioButton("Кассация")
+        cassation_btn.instance_value = "cassation"
+
         self.instance_buttons["first"] = first_btn
         self.instance_buttons["appeal"] = appeal_btn
+        self.instance_buttons["cassation"] = cassation_btn
 
         appeal_btn.toggled.connect(self.on_context_changed)
         first_btn.toggled.connect(self.on_context_changed)
+        cassation_btn.toggled.connect(self.on_context_changed)
 
         inst_layout.addWidget(first_btn)
         inst_layout.addWidget(appeal_btn)
+        inst_layout.addWidget(cassation_btn)
 
         self.instance_buttons["first"].setChecked(True)
         top_layout.addWidget(inst_group)
@@ -964,7 +971,7 @@ class MainWindow(QMainWindow):
             found = False
 
             for spec in self.spec_buttons.keys():
-                for inst in ("first", "appeal"):
+                for inst in self.instance_buttons:
                     candidate = select_pkl_for_context(
                         pkl_files,
                         specialization=spec,

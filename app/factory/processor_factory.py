@@ -24,6 +24,8 @@ from app.processors.kas_first_district import KASFirstDistrictProcessor
 from app.processors.gpk_first_regional import GPKFirstRegionalProcessor
 from app.processors.gpk_appeal_regional import GPKAppealRegionalProcessor
 
+from app.processors.ap1_appeal_regional import AP1AppealRegionalProcessor
+from app.processors.ap2_appeal_regional import AP2FirstDistrictProcessor
 
 
 class ProcessorFactory:
@@ -64,6 +66,12 @@ class ProcessorFactory:
 
         if key == ("M_AOS", "first", "regional"):
             return MAOSFirstDistrictProcessor()
+
+        if key == ("AP1", "appeal", "regional"):
+            return AP1AppealRegionalProcessor()
+
+        if key == ("AP2", "appeal", "regional"):
+            return AP2FirstDistrictProcessor()
 
 
         raise ValueError("Нет процессора для контекста: %s" % (key,))
