@@ -27,6 +27,7 @@ from app.processors.gpk_appeal_regional import GPKAppealRegionalProcessor
 from app.processors.ap1_appeal_regional import AP1AppealRegionalProcessor
 from app.processors.ap2_appeal_regional import AP2FirstDistrictProcessor
 
+from app.processors.pvs_cassation_regional import PVSCassationRegionalProcessor
 
 class ProcessorFactory:
 
@@ -72,6 +73,9 @@ class ProcessorFactory:
 
         if key == ("AP2", "appeal", "regional"):
             return AP2FirstDistrictProcessor()
+
+        if key == ("PVS", "cassation", "regional"):
+            return PVSCassationRegionalProcessor()
 
 
         raise ValueError("Нет процессора для контекста: %s" % (key,))

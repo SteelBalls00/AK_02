@@ -157,6 +157,7 @@ class MainWindow(QMainWindow):
             "U1": "УГ",
             "M_U1": "М.Уг",
             "M_AOS": "М.",
+            "PVS": "ПВС",
         }
 
         for code, label in specs.items():
@@ -424,10 +425,7 @@ class MainWindow(QMainWindow):
         btn.setVisible(visible)
 
     def update_instance_buttons(self, court_name: str):
-        instances = self.bases_repo.get_available_instances(
-            court_name,
-            self.specialization
-        )
+        instances = self.bases_repo.get_instances(court_name)
 
         for inst, btn in self.instance_buttons.items():
             btn.setEnabled(inst in instances)
@@ -968,26 +966,14 @@ class MainWindow(QMainWindow):
         # 2️⃣ Если нет — автоматически ищем валидную
         # =========================================
         if not pkl_name:
-            found = False
-
+            # сначала сохраняем выбранную инстанцию, меняя специализацию
             for spec in self.spec_buttons.keys():
-                for inst in self.instance_buttons:
-                    candidate = select_pkl_for_context(
-                        pkl_files,
-                        specialization=spec,
-                        instance=inst
-                    )
-                    if candidate:
-                        self.specialization = spec
-                        self.instance = inst
-
-                        self.spec_buttons[spec].setChecked(True)
-                        self.instance_buttons[inst].setChecked(True)
-
-                        pkl_name = candidate
-                        found = True
-                        break
-                if found:
+                candidate = select_pkl_for_context(
+                    pkl_files, specialization=spec, instance=self.instance)
+                if candidate:
+                    self.specialization = spec
+                    self.spec_buttons[spec].setChecked(True)
+                    pkl_name = candidate
                     break
 
         # если вообще нет ни одной подходящей базы

@@ -672,6 +672,32 @@ WORD_regional_appeal_TEMPLATES = {
     }
 }
 
+WORD_regional_cassation_TEMPLATES = {
+    "PVS": {
+        "headers": [
+            "Судья",
+            "Рассмотрено\nза неделю",
+            "Рассмотрено\nс начала года",
+            "Рассмотрено\nс нарушением\nза неделю",
+            "Рассмотрено\nс нарушением\nс начала года",
+            "Остаток",
+            "2–6 мес.\n(всего/год)",
+            "6 мес. – 1 год\n(всего/год)",
+            "1 – 2 года\n(всего/год)",
+            "Свыше\nдвух лет\n(всего/год)",
+            "Не сдано\nв канц.\nсвыше срока",
+            "Наруш. сдачи\nв канц.\nс нач. года",
+        ],
+        "merge": [
+            ((0, 1), (0, 2), "Рассмотрено\nза нед./год"),
+            ((0, 3), (0, 4), "Рассмотрено с наруш.\nсрока нед./год"),
+            ((0, 10), (0, 11), "Наруш. сдачи\nканц. нед./год"),
+        ],
+        "header_align": WD_PARAGRAPH_ALIGNMENT.CENTER,
+        "font_size": 9,
+    },
+}
+
 WORD_TEMPLATES = {
     "district_first": WORD_district_first_TEMPLATES,
     "district_appeal": WORD_district_appeal_TEMPLATES,
@@ -679,4 +705,5 @@ WORD_TEMPLATES = {
     # "regional_appeal": WORD_district_appeal_TEMPLATES,
     "regional_first": WORD_regional_first_TEMPLATES,
     "regional_appeal": WORD_regional_appeal_TEMPLATES,
+    "regional_cassation": WORD_regional_cassation_TEMPLATES,
 }

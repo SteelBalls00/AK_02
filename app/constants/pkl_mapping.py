@@ -27,8 +27,8 @@ PKL_MAPPING = {
     "result4_AP1_AOS.pkl":  PKLInfo("AP1", "appeal", "regional"),
     "result4_AP2_AOS.pkl":  PKLInfo("AP2", "appeal", "regional"),
 
-    # апелляция — областной суд
-    "result4_AP3_AOS.pkl": PKLInfo("AP2", "appeal", "cassation"),
+    # кассация — областной суд
+    "result4_AP3.pkl": PKLInfo("PVS", "cassation", "regional"),
 }
 
 

@@ -79,5 +79,14 @@ class BasesRepository:
 
         return instances
 
+    def get_instances(self, court_name):
+        """Все инстанции, доступные в этом суде (по любой специализации)."""
+        pkl_files = self.get_pkl_files(court_name)
+        return {
+            info.instance
+            for name, info in PKL_MAPPING.items()
+            if name in pkl_files
+        }
+
     def get_pkl_path(self, court_name: str, pkl_name: str) -> str:
         return os.path.join(self.base_dir, court_name, pkl_name)
