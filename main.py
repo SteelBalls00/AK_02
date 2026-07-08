@@ -43,6 +43,8 @@ from app.workers.data_load_worker import DataLoadWorker
 from app.export.word_exporter import export_model_to_word
 from app.ui.graph_widget import GraphWidget
 
+from app.constants.spec_labels import SPEC_LABELS
+
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "bases")
 
@@ -148,17 +150,7 @@ class MainWindow(QMainWindow):
 
         self.spec_buttons = {}
 
-        specs = {
-            "GPK": "ГПК",
-            "KAS": "КАС",
-            "AP": "АП",
-            "AP1": "АП1",
-            "AP2": "АП2",
-            "U1": "УГ",
-            "M_U1": "М.Уг",
-            "M_AOS": "М.",
-            "PVS": "ПВС",
-        }
+        specs = SPEC_LABELS
 
         for code, label in specs.items():
             rb = QRadioButton(label)

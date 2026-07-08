@@ -9,6 +9,8 @@ from app.export.word_templates import WORD_district_first_TEMPLATES, WORD_TEMPLA
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.shared import Pt
 
+from app.constants.spec_labels import SPEC_LABELS
+
 
 def export_model_to_word(model, processor, court, week):
     template_key = processor.word_template_key
@@ -43,7 +45,8 @@ def export_model_to_word(model, processor, court, week):
         setattr(section, attr, Inches(0.5))
 
     # --- Заголовок ---
-    document.add_paragraph(f"{court} ({specialization}) — {week}")
+    document.add_paragraph(
+        f"{court} ({SPEC_LABELS.get(specialization, specialization)}) — {week}")
 
     rows = model.rowCount()
     cols = model.columnCount()
