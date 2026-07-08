@@ -748,6 +748,7 @@ class MainWindow(QMainWindow):
             """
             return _PREFIX_RE.sub("", raw, count=1)
 
+        lines = []
         column = column.replace('\n', ' ')
         if column != 'Судья':
             lines = [
@@ -929,6 +930,9 @@ class MainWindow(QMainWindow):
         if not getattr(self, "_ui_ready", False):
             return
 
+        if getattr(self, "_updating_ui", False):
+            return
+
         # specialization
         for spec, btn in self.spec_buttons.items():
             if btn.isChecked():
@@ -954,43 +958,47 @@ class MainWindow(QMainWindow):
             return
 
         # =========================================
-        # 1️⃣ Проверяем — существует ли текущая комбинация
+        # 1️⃣-2️⃣ Подбираем комбинацию, кнопки не трогаем
         # =========================================
-        pkl_name = select_pkl_for_context(
-            pkl_files,
-            specialization=self.specialization,
-            instance=self.instance
-        )
+        pkl_name = self._resolve_combination(pkl_files)
 
-        # =========================================
-        # 2️⃣ Если нет — автоматически ищем валидную
-        # =========================================
-        if not pkl_name:
-            # сначала сохраняем выбранную инстанцию, меняя специализацию
-            for spec in self.spec_buttons.keys():
-                candidate = select_pkl_for_context(
-                    pkl_files, specialization=spec, instance=self.instance)
-                if candidate:
-                    self.specialization = spec
-                    self.spec_buttons[spec].setChecked(True)
-                    pkl_name = candidate
-                    break
-
-        # если вообще нет ни одной подходящей базы
-        if not pkl_name:
-            QMessageBox.warning(
-                self,
-                "Нет данных",
-                "Для выбранного суда нет подходящей базы"
-            )
-            self.model.set_table_data({})
-            return
+        # # =========================================
+        # # 1️⃣ Проверяем — существует ли текущая комбинация
+        # # =========================================
+        # pkl_name = select_pkl_for_context(
+        #     pkl_files,
+        #     specialization=self.specialization,
+        #     instance=self.instance
+        # )
+        #
+        # # =========================================
+        # # 2️⃣ Если нет — автоматически ищем валидную
+        # # =========================================
+        # if not pkl_name:
+        #     # сначала сохраняем выбранную инстанцию, меняя специализацию
+        #     for spec in self.spec_buttons.keys():
+        #         candidate = select_pkl_for_context(
+        #             pkl_files, specialization=spec, instance=self.instance)
+        #         if candidate:
+        #             self.specialization = spec
+        #             self.spec_buttons[spec].setChecked(True)
+        #             pkl_name = candidate
+        #             break
+        #
+        # # если вообще нет ни одной подходящей базы
+        # if not pkl_name:
+        #     QMessageBox.warning(
+        #         self,
+        #         "Нет данных",
+        #         "Для выбранного суда нет подходящей базы"
+        #     )
+        #     self.model.set_table_data({})
+        #     return
 
         # =========================================
         # 3️⃣ Обновляем доступность кнопок UI
         # =========================================
-        self.update_specialization_buttons(court_name)
-        self.update_instance_buttons(court_name)
+        self._apply_buttons(court_name)
 
         # =========================================
         # 4️⃣ Загружаем pkl
@@ -1029,6 +1037,39 @@ class MainWindow(QMainWindow):
             self.week_index = self.max_week_index
 
         self.table_view.resizeColumnsToContents()
+
+    def _resolve_combination(self, pkl_files):
+        """Подбор пары (специализация, инстанция) для суда.
+        Приоритет: текущая пара -> та же инстанция (меняем специализацию)
+        -> та же специализация (меняем инстанцию) -> первая доступная.
+        Кнопки НЕ трогает — только self.specialization / self.instance."""
+        candidates = (
+                [(self.specialization, self.instance)]
+                + [(s, self.instance) for s in self.spec_buttons]
+                + [(self.specialization, i) for i in self.instance_buttons]
+                + [(s, i) for s in self.spec_buttons
+                   for i in self.instance_buttons]
+        )
+        for spec, inst in candidates:
+            pkl_name = select_pkl_for_context(
+                pkl_files, specialization=spec, instance=inst)
+            if pkl_name:
+                self.specialization = spec
+                self.instance = inst
+                return pkl_name
+        return None
+
+    def _apply_buttons(self, court_name):
+        """Выставить кнопки под подобранную комбинацию одним махом,
+        не запуская каскад on_context_changed -> reload -> on_court_changed."""
+        self._updating_ui = True
+        try:
+            self.update_specialization_buttons(court_name)
+            self.update_instance_buttons(court_name)
+            self.spec_buttons[self.specialization].setChecked(True)
+            self.instance_buttons[self.instance].setChecked(True)
+        finally:
+            self._updating_ui = False
 
     def load_table_async(self):
         self.table_view.setEnabled(False)
